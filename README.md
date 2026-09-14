@@ -9,7 +9,7 @@
     ▀▀██████▀▀
 ```
 
-面向 Pi、Codex、Claude Code、OpenCode 和 Cursor 的 Workflow patch 安装聚合器。npm 包名是 `pitayaflow`（`pitaya` 在 npm 上已被占用），命令名是 `pitaya`：用 `npx pitayaflow ...` 直接运行，或 `npm install -g pitayaflow` 后直接输入 `pitaya ...`。
+面向 Pi、Codex、Claude Code、OpenCode 和 Cursor 的 Workflow patch 安装聚合器。npm 包名是 `pitayax`，命令名是 `pitaya`：用 `npx pitayax ...` 直接运行，或 `npm install -g pitayax` 后直接输入 `pitaya ...`。
 
 `pitaya` 不替代 Trellis。它是在 Trellis 之上安装一组项目级个人 workflow 约束，同时聚合配置 MCP servers 和 skills；也可以安装 Pi 及配套扩展：
 
@@ -26,7 +26,7 @@
 ### 交互式 TUI（推荐）
 
 ```bash
-npx pitayaflow
+npx pitayax
 ```
 
 无参数时自动进入 TUI：
@@ -48,11 +48,11 @@ npx pitayaflow
 ### 命令行模式
 
 ```bash
-npx pitayaflow init -p cursor
-npx pitayaflow init -p claude
-npx pitayaflow init -p opencode
-npx pitayaflow init -p codex
-npx pitayaflow init -p pi
+npx pitayax init -p cursor
+npx pitayax init -p claude
+npx pitayax init -p opencode
+npx pitayax init -p codex
+npx pitayax init -p pi
 ```
 
 `-p` 是必填参数。默认安装范围是项目级，默认模式是 `strict`，默认安装全部 skills 和 MCPs。
@@ -60,11 +60,11 @@ npx pitayaflow init -p pi
 ## 命令
 
 ```bash
-npx pitayaflow                                  # 交互式 TUI
-npx pitayaflow interactive                      # 同上
-npx pitayaflow init -p <platform> [options]
-npx pitayaflow doctor -p <platform>
-npx pitayaflow update -p <platform>
+npx pitayax                                  # 交互式 TUI
+npx pitayax interactive                      # 同上
+npx pitayax init -p <platform> [options]
+npx pitayax doctor -p <platform>
+npx pitayax update -p <platform>
 ```
 
 参数：
@@ -117,14 +117,14 @@ MCP ids：
 ## Pi 安装
 
 ```bash
-npx pitayaflow init -p pi
+npx pitayax init -p pi
 ```
 
 只装其中一部分：
 
 ```bash
-npx pitayaflow init -p pi --pi-plugins nano-context,mcp-adapter
-npx pitayaflow init -p pi --skip-pi-plugins
+npx pitayax init -p pi --pi-plugins nano-context,mcp-adapter
+npx pitayax init -p pi --skip-pi-plugins
 ```
 
 该命令会：
@@ -139,7 +139,7 @@ npx pitayaflow init -p pi --skip-pi-plugins
 8. 执行检查：
 
 ```bash
-npx pitayaflow doctor -p pi
+npx pitayax doctor -p pi
 ```
 
 重复执行是幂等的：没有变化时 install report 全是 `unchanged`，不会产生多余的 npm 写入。
@@ -176,7 +176,7 @@ npx pitayaflow doctor -p pi
 升级 Pi 及扩展时执行：
 
 ```bash
-npx pitayaflow update -p pi
+npx pitayax update -p pi
 ```
 
 ## 平台前置条件
@@ -185,14 +185,14 @@ npx pitayaflow update -p pi
 
 - Node.js >= 18（建议使用当前 LTS）
 - npm
-- Pi 使用 `npx pitayaflow init -p pi` 时，会自动安装固定版本 Pi CLI
+- Pi 使用 `npx pitayax init -p pi` 时，会自动安装固定版本 Pi CLI
 - 若使用 Trellis 自动初始化，需要 Python >= 3.9；Windows 请在安装 Python 时勾选加入 PATH
 - 使用 `grok-search-mcp` 需要 `uvx`；Windows、macOS、Ubuntu 都应按官方文档安装 uv
 
 无 TTY 的 CI 或脚本环境不要调用无参数 TUI，改用显式 CLI，例如：
 
 ```bash
-npx pitayaflow init -p pi --yes
+npx pitayax init -p pi --yes
 ```
 
 ## Trellis
@@ -338,7 +338,7 @@ status: confirmed
 
 ## 从 dream-wf 迁移
 
-产品由 `dream-wf` 更名为 `pitaya`。在已经装过 `dream-wf` 的项目里执行 `npx pitayaflow update -p <platform>`，安装器会自动：
+产品由 `dream-wf` 更名为 `pitaya`。在已经装过 `dream-wf` 的项目里执行 `npx pitayax update -p <platform>`，安装器会自动：
 
 - 把 `CLAUDE.md` / `AGENTS.md` / `~/.pi/agent/APPEND_SYSTEM.md` 里的 `<!-- DREAM-WF:START -->` 区块原位替换为 `<!-- PITAYA:START -->` 区块；
 - 把 `.trellis/workflow.md` 里的 `dream-wf:profile:v1` 区块原位替换为 `pitaya:profile:v1` 区块；
@@ -359,8 +359,8 @@ strict 模式的逃生舱环境变量由 `DREAM_WF_MODE=advisory` 改为 `PITAYA
 提交前运行 doctor：
 
 ```bash
-npx pitayaflow doctor -p cursor
-npx pitayaflow doctor -p codex
+npx pitayax doctor -p cursor
+npx pitayax doctor -p codex
 ```
 
 doctor 会检查：

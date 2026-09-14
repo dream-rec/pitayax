@@ -1,5 +1,5 @@
 {
-  "name": "pitayaflow",
+  "name": "pitayax",
   "version": "0.3.0",
   "description": "Trellis workflow patch installer and MCP/skill aggregator for Pi, Cursor, Claude Code, OpenCode and Codex.",
   "type": "module",

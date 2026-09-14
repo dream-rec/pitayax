@@ -417,7 +417,7 @@ function formatBanner() {
 function helpText() {
   return [
     `pitaya v${packageVersion} · Trellis workflow 安装聚合器`,
-    "npm 包名 pitayaflow（npx pitayaflow ...），全局安装后命令为 pitaya。",
+    "npm 包名 pitayax（npx pitayax ...），全局安装后命令为 pitaya。",
     "",
     "Usage:",
     "  pitaya                         # 交互式 TUI（推荐）",
@@ -448,11 +448,11 @@ function helpText() {
     `  ${PI_PLUGIN_CATALOG.map((plugin) => plugin.id).join(", ")}`,
     "",
     "Examples:",
-    "  npx pitayaflow",
-    "  npx pitayaflow init -p cursor",
-    "  npx pitayaflow init -p pi",
-    "  npx pitayaflow init -p pi --pi-plugins nano-context,mcp-adapter",
-    "  npx pitayaflow init -p claude --skills trellis-pitaya-patch --mcps fast-context",
-    "  npx pitayaflow doctor -p codex",
+    "  npx pitayax",
+    "  npx pitayax init -p cursor",
+    "  npx pitayax init -p pi",
+    "  npx pitayax init -p pi --pi-plugins nano-context,mcp-adapter",
+    "  npx pitayax init -p claude --skills trellis-pitaya-patch --mcps fast-context",
+    "  npx pitayax doctor -p codex",
   ].join("\n");
 }

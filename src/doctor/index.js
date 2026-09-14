@@ -8,7 +8,7 @@ export async function runDoctor(rootDir, platform) {
 
 export function formatDoctorReport(report) {
   const lines = [];
-  lines.push(`dream-wf doctor: ${report.ok ? 'ok' : 'issues found'}`);
+  lines.push(`pitaya doctor: ${report.ok ? 'ok' : 'issues found'}`);
   for (const check of report.checks) {
     lines.push(`${check.ok ? '✓' : '✗'} ${check.name}${check.ok ? '' : ` — ${check.hint}`}`);
   }

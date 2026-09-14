@@ -71,7 +71,7 @@ export const REPAIRS = {
       return {
         name: 'Pi footer conflict repair',
         ok: Boolean(source) && !source.includes('ctx.ui.setFooter('),
-        hint: `pi-nano-context still registers a competing footer. Run dream-wf update -p pi to repair ${nanoPath}`
+        hint: `pi-nano-context still registers a competing footer. Run pitaya update -p pi to repair ${nanoPath}`
       };
     }
   },
@@ -119,12 +119,12 @@ export const REPAIRS = {
         {
           name: 'Pi provider-manager settings filter',
           ok: Boolean(entry) && typeof entry === 'object' && Array.isArray(entry.extensions) && entry.extensions.length === 0,
-          hint: `provider-manager must be pinned to { source, extensions: [] } in ${settingsPath}, otherwise pi loads its 6 submodules as separate extensions. Run dream-wf update -p pi.`
+          hint: `provider-manager must be pinned to { source, extensions: [] } in ${settingsPath}, otherwise pi loads its 6 submodules as separate extensions. Run pitaya update -p pi.`
         },
         {
           name: 'Pi provider-manager single-entry shim',
           ok: await pathExists(shimPath),
-          hint: `Missing ${shimPath}. Run dream-wf update -p pi.`
+          hint: `Missing ${shimPath}. Run pitaya update -p pi.`
         }
       ];
     }
@@ -147,7 +147,7 @@ export const REPAIRS = {
       return {
         name: 'Pi tool-display config',
         ok: await pathExists(configPath),
-        hint: `Missing ${configPath}. Run dream-wf update -p pi.`
+        hint: `Missing ${configPath}. Run pitaya update -p pi.`
       };
     }
   },
@@ -188,7 +188,7 @@ export const REPAIRS = {
       return {
         name: 'Pi cometix footer adaptive layout',
         ok: Boolean(source) && source.includes(COMETIX_FOOTER_REPAIR_MARKER) && source.includes('wrapTextWithAnsi') && !source.includes('const ctxSeg = paint(') && source.includes('.filter(([key]) => key !== "magic-context")'),
-        hint: `pi-cometix-footer needs adaptive wrapping and duplicate context status filtering. Run dream-wf update -p pi to repair ${footerPath}`
+        hint: `pi-cometix-footer needs adaptive wrapping and duplicate context status filtering. Run pitaya update -p pi to repair ${footerPath}`
       };
     }
   },
@@ -226,7 +226,7 @@ export const REPAIRS = {
       return {
         name: 'Pi onnxruntime x64 override',
         ok: manifest.overrides?.['@huggingface/transformers']?.['onnxruntime-node'] === ONNX_PIN && resolved.version === ONNX_PIN,
-        hint: `onnxruntime-node must be pinned to ${ONNX_PIN} in ${packagePath}; newer releases ship no darwin/x64 binary. Run dream-wf update -p pi.`
+        hint: `onnxruntime-node must be pinned to ${ONNX_PIN} in ${packagePath}; newer releases ship no darwin/x64 binary. Run pitaya update -p pi.`
       };
     }
   }
@@ -298,7 +298,7 @@ export async function checkPinnedVersions(plugins, agentDir) {
     checks.push({
       name: `Pi package ${plugin.name}`,
       ok: manifest.version === expected,
-      hint: `Expected ${plugin.name}@${expected}, found ${manifest.version ?? 'nothing'}. Run dream-wf update -p pi.`
+      hint: `Expected ${plugin.name}@${expected}, found ${manifest.version ?? 'nothing'}. Run pitaya update -p pi.`
     });
   }
   return checks;

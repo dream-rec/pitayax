@@ -4,19 +4,19 @@
 
 export const SKILL_CATALOG = [
   {
-    id: 'trellis-dream-wf-patch',
-    name: 'dream-wf-grill-prd',
-    label: 'dream-wf-grill-prd (Trellis patch · grill-me style PRD)',
-    description: 'grill-me 风格的 PRD 澄清 skill，dream-wf 的核心 patch。',
-    templateDir: 'dream-wf-grill-prd',
+    id: 'trellis-pitaya-patch',
+    name: 'pitaya-grill-prd',
+    label: 'pitaya-grill-prd (Trellis patch · grill-me style PRD)',
+    description: 'grill-me 风格的 PRD 澄清 skill，pitaya 的核心 patch。',
+    templateDir: 'pitaya-grill-prd',
     default: true
   },
   {
-    id: 'dream-wf-mcp-policy',
-    name: 'dream-wf-mcp-policy',
-    label: 'dream-wf-mcp-policy (MCP 优先级策略 skill)',
+    id: 'pitaya-mcp-policy',
+    name: 'pitaya-mcp-policy',
+    label: 'pitaya-mcp-policy (MCP 优先级策略 skill)',
     description: '强制 fast-context-mcp / grok-search-mcp 优先级的策略 skill。',
-    templateDir: 'dream-wf-mcp-policy',
+    templateDir: 'pitaya-mcp-policy',
     default: true
   }
 ];

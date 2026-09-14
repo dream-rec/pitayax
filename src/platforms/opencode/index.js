@@ -1,15 +1,15 @@
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { writeIfChanged } from '../../lib/files.js';
-import { installCommonDreamWfFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
+import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
 import { installMcpServers } from '../../lib/mcp.js';
 
 export async function installOpenCode(packageRoot, targetRoot, options) {
   const results = [];
 
-  results.push(await installManagedBlock(packageRoot, targetRoot, 'templates/rules/opencode/dream-wf-block.md', 'AGENTS.md', '<!-- DREAM-WF:START -->', '<!-- DREAM-WF:END -->'));
+  results.push(await installManagedBlock(packageRoot, targetRoot, 'templates/rules/opencode/pitaya-block.md', 'AGENTS.md', '<!-- PITAYA:START -->', '<!-- PITAYA:END -->'));
   results.push(...await installSelectedSkills(packageRoot, targetRoot, '.opencode', options.skills));
-  results.push(...await installCommonDreamWfFiles(packageRoot, targetRoot));
+  results.push(...await installCommonPitayaFiles(packageRoot, targetRoot));
 
   if (options.mcps && options.mcps.length > 0) {
     results.push(await installMcpServers(targetRoot, 'opencode', options.mcps));
@@ -23,8 +23,8 @@ export async function installOpenCode(packageRoot, targetRoot, options) {
 }
 
 async function installOpenCodePlugin(packageRoot, targetRoot) {
-  const sourcePath = path.join(packageRoot, 'templates', 'hooks', 'opencode', 'dream-wf-guard.js');
-  const targetPath = path.join(targetRoot, '.opencode', 'plugins', 'dream-wf-guard.js');
+  const sourcePath = path.join(packageRoot, 'templates', 'hooks', 'opencode', 'pitaya-guard.js');
+  const targetPath = path.join(targetRoot, '.opencode', 'plugins', 'pitaya-guard.js');
   const contents = await readFile(sourcePath, 'utf8');
   return writeIfChanged(targetPath, contents);
 }

@@ -4,12 +4,12 @@ import path from 'node:path';
 const mutatingTools = new Set(['Write', 'Edit', 'MultiEdit', 'Delete', 'apply_patch', 'shell']);
 const mutatingShell = /\b(rm|mv|cp|mkdir|touch|npm\s+install|pnpm\s+add|yarn\s+add|bun\s+add|git\s+commit|git\s+push)\b/;
 
-export default function dreamWfGuard() {
+export default function pitayaGuard() {
   return {
-    name: 'dream-wf-guard',
+    name: 'pitaya-guard',
     async 'tool.execute.before'(input) {
-      // 逃生舱：DREAM_WF_MODE=advisory 时跳过 strict 检查。
-      if (process.env.DREAM_WF_MODE?.toLowerCase() === 'advisory') {
+      // 逃生舱：PITAYA_MODE=advisory 时跳过 strict 检查。
+      if (process.env.PITAYA_MODE?.toLowerCase() === 'advisory') {
         return;
       }
 
@@ -26,7 +26,7 @@ export default function dreamWfGuard() {
 
       const tasks = activeTasks(root);
       if (tasks.length === 0) {
-        throw new Error('dream-wf strict: mutating actions require an active Trellis task. Create or start a Trellis task first, or switch dream-wf to advisory mode (DREAM_WF_MODE=advisory).');
+        throw new Error('pitaya strict: mutating actions require an active Trellis task. Create or start a Trellis task first, or switch pitaya to advisory mode (PITAYA_MODE=advisory).');
       }
 
       // 规划产物始终允许，便于在 planning 阶段编写 prd/design 等。
@@ -48,7 +48,7 @@ export default function dreamWfGuard() {
       // 剩余情况：所有活跃任务都是 planning。若任一未确认 PRD，则阻塞实现。
       const hasUnconfirmedPlanning = tasks.some(({ taskDir, task }) => task.status === 'planning' && !isPrdConfirmed(taskDir));
       if (hasUnconfirmedPlanning) {
-        throw new Error('dream-wf strict: implementation is blocked while all active tasks are in planning and at least one PRD is not confirmed. Continue grill-me PRD clarification first. Planning artifacts under .trellis/tasks/** are allowed.');
+        throw new Error('pitaya strict: implementation is blocked while all active tasks are in planning and at least one PRD is not confirmed. Continue grill-me PRD clarification first. Planning artifacts under .trellis/tasks/** are allowed.');
       }
     }
   };

@@ -66,7 +66,7 @@ function renderRadioList(items, cursorIndex) {
 // 方向键转义序列 \x1B[A/B/C/D 可能分多个 data 事件到达，这里做拼接。
 function readKeystroke() {
   if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== "function") {
-    throw new Error("交互式安装需要真实终端；CI、管道或不支持 raw mode 的控制台请使用 dream-wf init -p <platform>。");
+    throw new Error("交互式安装需要真实终端；CI、管道或不支持 raw mode 的控制台请使用 pitaya init -p <platform>。");
   }
   return new Promise((resolve) => {
     let buffer = "";
@@ -367,7 +367,7 @@ export async function runInteractive() {
   }));
   const platform = await singleSelect({
     title: step("选择目标平台"),
-    hint: "选择你要安装 dream-wf 的 AI 编码平台。",
+    hint: "选择你要安装 pitaya 的 AI 编码平台。",
     items: platformItems,
   });
 
@@ -449,7 +449,7 @@ export async function runInteractive() {
   // 选择 skills。
   const skillIds = await multiSelect({
     title: step("选择要安装的 Skills"),
-    hint: "这些是 dream-wf 的 Trellis patch skills，默认全选。",
+    hint: "这些是 pitaya 的 Trellis patch skills，默认全选。",
     items: SKILL_CATALOG,
     defaults: defaultSkillIds(),
   });

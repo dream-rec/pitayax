@@ -3,27 +3,30 @@ import process from 'node:process';
 import { readFile, chmod } from 'node:fs/promises';
 import { readJsonObject, writeJsonObject, pushUniqueByCommand } from '../../lib/json.js';
 import { writeIfChanged, readTextIfExists, writeTextFile } from '../../lib/files.js';
-import { installCommonDreamWfFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
+import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
 import { installMcpServers } from '../../lib/mcp.js';
 import { projectPythonCommand } from '../../lib/runtime.js';
 
 const CODEX_GUARD_MATCHER = 'Bash|Shell|shell|apply_patch|Edit|Write';
+// 旧版 dream-wf 以及不同 python 解释器名写入的 hook 命令，更新时统一迁移到当前命令。
 const LEGACY_CODEX_GUARD_COMMANDS = [
   'python3 "$CODEX_PROJECT_DIR/.codex/hooks/dream-wf-guard.py"',
   'python3 -X utf8 .codex/hooks/dream-wf-guard.py',
-  'python -X utf8 .codex/hooks/dream-wf-guard.py'
+  'python -X utf8 .codex/hooks/dream-wf-guard.py',
+  'python3 -X utf8 .codex/hooks/pitaya-guard.py',
+  'python -X utf8 .codex/hooks/pitaya-guard.py'
 ];
 
 // Codex CLI 读取项目根的 AGENTS.md 作为入口规则。
 // Codex 支持 PreToolUse 阻塞式 hook，配置在 .codex/hooks.json（和 config.toml [hooks] 段等效）。
 // 需要在 config.toml 里加 [features] hooks = true 来启用 hooks 功能。
-// hook 脚本放在 .codex/hooks/dream-wf-guard.py。
+// hook 脚本放在 .codex/hooks/pitaya-guard.py。
 export async function installCodex(packageRoot, targetRoot, options) {
   const results = [];
 
-  results.push(await installManagedBlock(packageRoot, targetRoot, 'templates/rules/codex/dream-wf-block.md', 'AGENTS.md', '<!-- DREAM-WF:START -->', '<!-- DREAM-WF:END -->'));
+  results.push(await installManagedBlock(packageRoot, targetRoot, 'templates/rules/codex/pitaya-block.md', 'AGENTS.md', '<!-- PITAYA:START -->', '<!-- PITAYA:END -->'));
   results.push(...await installSelectedSkills(packageRoot, targetRoot, '.codex', options.skills));
-  results.push(...await installCommonDreamWfFiles(packageRoot, targetRoot));
+  results.push(...await installCommonPitayaFiles(packageRoot, targetRoot));
 
   if (options.mcps && options.mcps.length > 0) {
     results.push(await installMcpServers(targetRoot, 'codex', options.mcps));
@@ -39,8 +42,8 @@ export async function installCodex(packageRoot, targetRoot, options) {
 }
 
 async function installCodexHook(packageRoot, targetRoot) {
-  const sourcePath = path.join(packageRoot, 'templates', 'hooks', 'codex', 'dream-wf-guard.py');
-  const targetPath = path.join(targetRoot, '.codex', 'hooks', 'dream-wf-guard.py');
+  const sourcePath = path.join(packageRoot, 'templates', 'hooks', 'codex', 'pitaya-guard.py');
+  const targetPath = path.join(targetRoot, '.codex', 'hooks', 'pitaya-guard.py');
   const contents = await readFile(sourcePath, 'utf8');
   const result = await writeIfChanged(targetPath, contents);
   if (process.platform !== 'win32') {
@@ -70,7 +73,7 @@ async function ensureCodexHooksFeature(rootDir) {
 // { "hooks": { "PreToolUse": [ { "matcher": "...", "hooks": [ { "type": "command", "command": "...", "timeout": 10 } ] } ] } }
 // Codex 的 matcher 是正则匹配 tool_name，用 Bash|Shell|apply_patch|Edit|Write 匹配变更类工具。
 async function mergeCodexHooks(rootDir) {
-  const command = projectPythonCommand('.codex/hooks/dream-wf-guard.py');
+  const command = projectPythonCommand('.codex/hooks/pitaya-guard.py');
   const hooksPath = path.join(rootDir, '.codex', 'hooks.json');
   const hooks = await readJsonObject(hooksPath, { hooks: {} });
   hooks.hooks = hooks.hooks ?? {};
@@ -104,7 +107,7 @@ function replaceHookCommand(items, oldCommand, newCommand) {
     }
 
     for (const hook of item.hooks) {
-      if (hook?.command === oldCommand) {
+      if (hook?.command === oldCommand && oldCommand !== newCommand) {
         hook.command = newCommand;
         changed = true;
       }

@@ -1,4 +1,4 @@
-# Dream WF MCP Policy
+# Pitaya MCP Policy
 
 This project prefers MCP tools in a fixed order.
 

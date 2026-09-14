@@ -24,7 +24,7 @@ export async function checkDependencies(rootDir, platform) {
       checks.push({
         name: 'Pi plugins',
         ok: false,
-        hint: `No dream-wf Pi plugins registered in ${piSettingsPath(agentDir)}. Run dream-wf init -p pi.`
+        hint: `No pitaya Pi plugins registered in ${piSettingsPath(agentDir)}. Run pitaya init -p pi.`
       });
     }
     checks.push(...await checkPinnedVersions(plugins, agentDir));
@@ -32,9 +32,9 @@ export async function checkDependencies(rootDir, platform) {
 
     checks.push(await fileCheck(path.join(rootDir, '.trellis'), 'Trellis project directory'));
     checks.push(await fileCheck(path.join(rootDir, '.pi', 'extensions', 'trellis', 'index.ts'), 'Trellis Pi extension'));
-    checks.push(await contentCheck(path.join(rootDir, 'AGENTS.md'), '<!-- DREAM-WF:START -->', 'Pi dream-wf entry block'));
-    checks.push(await fileCheck(path.join(rootDir, '.agents', 'skills', 'dream-wf-grill-prd', 'SKILL.md'), 'Pi dream-wf grill PRD skill'));
-    checks.push(await fileCheck(path.join(rootDir, '.agents', 'skills', 'dream-wf-mcp-policy', 'SKILL.md'), 'Pi dream-wf MCP policy skill'));
+    checks.push(await contentCheck(path.join(rootDir, 'AGENTS.md'), '<!-- PITAYA:START -->', 'Pi pitaya entry block'));
+    checks.push(await fileCheck(path.join(rootDir, '.agents', 'skills', 'pitaya-grill-prd', 'SKILL.md'), 'Pi pitaya grill PRD skill'));
+    checks.push(await fileCheck(path.join(rootDir, '.agents', 'skills', 'pitaya-mcp-policy', 'SKILL.md'), 'Pi pitaya MCP policy skill'));
     checks.push(await mcpConfigCheck(rootDir, 'pi'));
     checks.push(await secretScan(rootDir));
     return checks;
@@ -48,32 +48,32 @@ export async function checkDependencies(rootDir, platform) {
   checks.push(await fileCheck(path.join(rootDir, '.trellis', 'workflow.md'), 'Trellis workflow'));
 
   if (platform === 'cursor') {
-    checks.push(await fileCheck(path.join(rootDir, '.cursor', 'rules', 'dream-wf.mdc'), 'Cursor dream-wf always-on rule'));
-    checks.push(await fileCheck(path.join(rootDir, '.cursor', 'skills', 'dream-wf-grill-prd', 'SKILL.md'), 'Cursor dream-wf grill PRD skill'));
-    checks.push(await fileCheck(path.join(rootDir, '.cursor', 'skills', 'dream-wf-mcp-policy', 'SKILL.md'), 'Cursor dream-wf MCP policy skill'));
+    checks.push(await fileCheck(path.join(rootDir, '.cursor', 'rules', 'pitaya.mdc'), 'Cursor pitaya always-on rule'));
+    checks.push(await fileCheck(path.join(rootDir, '.cursor', 'skills', 'pitaya-grill-prd', 'SKILL.md'), 'Cursor pitaya grill PRD skill'));
+    checks.push(await fileCheck(path.join(rootDir, '.cursor', 'skills', 'pitaya-mcp-policy', 'SKILL.md'), 'Cursor pitaya MCP policy skill'));
     checks.push(await mcpConfigCheck(rootDir, 'cursor'));
   }
 
   if (platform === 'claude') {
-    checks.push(await contentCheck(path.join(rootDir, 'CLAUDE.md'), '<!-- DREAM-WF:START -->', 'Claude Code dream-wf entry block'));
-    checks.push(await fileCheck(path.join(rootDir, '.claude', 'skills', 'dream-wf-grill-prd', 'SKILL.md'), 'Claude Code dream-wf grill PRD skill'));
-    checks.push(await fileCheck(path.join(rootDir, '.claude', 'skills', 'dream-wf-mcp-policy', 'SKILL.md'), 'Claude Code dream-wf MCP policy skill'));
+    checks.push(await contentCheck(path.join(rootDir, 'CLAUDE.md'), '<!-- PITAYA:START -->', 'Claude Code pitaya entry block'));
+    checks.push(await fileCheck(path.join(rootDir, '.claude', 'skills', 'pitaya-grill-prd', 'SKILL.md'), 'Claude Code pitaya grill PRD skill'));
+    checks.push(await fileCheck(path.join(rootDir, '.claude', 'skills', 'pitaya-mcp-policy', 'SKILL.md'), 'Claude Code pitaya MCP policy skill'));
     checks.push(await mcpConfigCheck(rootDir, 'claude'));
   }
 
   if (platform === 'opencode') {
-    checks.push(await contentCheck(path.join(rootDir, 'AGENTS.md'), '<!-- DREAM-WF:START -->', 'OpenCode dream-wf entry block'));
-    checks.push(await fileCheck(path.join(rootDir, '.opencode', 'skills', 'dream-wf-grill-prd', 'SKILL.md'), 'OpenCode dream-wf grill PRD skill'));
-    checks.push(await fileCheck(path.join(rootDir, '.opencode', 'skills', 'dream-wf-mcp-policy', 'SKILL.md'), 'OpenCode dream-wf MCP policy skill'));
+    checks.push(await contentCheck(path.join(rootDir, 'AGENTS.md'), '<!-- PITAYA:START -->', 'OpenCode pitaya entry block'));
+    checks.push(await fileCheck(path.join(rootDir, '.opencode', 'skills', 'pitaya-grill-prd', 'SKILL.md'), 'OpenCode pitaya grill PRD skill'));
+    checks.push(await fileCheck(path.join(rootDir, '.opencode', 'skills', 'pitaya-mcp-policy', 'SKILL.md'), 'OpenCode pitaya MCP policy skill'));
     checks.push(await mcpConfigCheck(rootDir, 'opencode'));
   }
 
   if (platform === 'codex') {
-    checks.push(await contentCheck(path.join(rootDir, 'AGENTS.md'), '<!-- DREAM-WF:START -->', 'Codex dream-wf entry block'));
-    checks.push(await fileCheck(path.join(rootDir, '.codex', 'skills', 'dream-wf-grill-prd', 'SKILL.md'), 'Codex dream-wf grill PRD skill'));
-    checks.push(await fileCheck(path.join(rootDir, '.codex', 'skills', 'dream-wf-mcp-policy', 'SKILL.md'), 'Codex dream-wf MCP policy skill'));
-    checks.push(await fileCheck(path.join(rootDir, '.codex', 'hooks', 'dream-wf-guard.py'), 'Codex dream-wf guard hook'));
-    checks.push(await contentCheck(path.join(rootDir, '.codex', 'hooks.json'), 'dream-wf-guard.py', 'Codex hooks.json registration'));
+    checks.push(await contentCheck(path.join(rootDir, 'AGENTS.md'), '<!-- PITAYA:START -->', 'Codex pitaya entry block'));
+    checks.push(await fileCheck(path.join(rootDir, '.codex', 'skills', 'pitaya-grill-prd', 'SKILL.md'), 'Codex pitaya grill PRD skill'));
+    checks.push(await fileCheck(path.join(rootDir, '.codex', 'skills', 'pitaya-mcp-policy', 'SKILL.md'), 'Codex pitaya MCP policy skill'));
+    checks.push(await fileCheck(path.join(rootDir, '.codex', 'hooks', 'pitaya-guard.py'), 'Codex pitaya guard hook'));
+    checks.push(await contentCheck(path.join(rootDir, '.codex', 'hooks.json'), 'pitaya-guard.py', 'Codex hooks.json registration'));
     checks.push(await contentCheck(path.join(rootDir, '.codex', 'config.toml'), 'hooks = true', 'Codex hooks feature enabled'));
     checks.push(await mcpConfigCheck(rootDir, 'codex'));
   }
@@ -98,7 +98,7 @@ async function mcpConfigCheck(rootDir, platform) {
     return {
       name: `MCP config (${configPaths[platform]})`,
       ok: false,
-      hint: `Missing ${configPaths[platform]}. Run dream-wf init or TUI to configure MCP servers.`
+      hint: `Missing ${configPaths[platform]}. Run pitaya init or TUI to configure MCP servers.`
     };
   }
 

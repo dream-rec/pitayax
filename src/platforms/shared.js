@@ -27,16 +27,28 @@ export async function installSpecGuide(packageRoot, targetRoot, fileName) {
   return writeIfChanged(targetPath, contents);
 }
 
-export async function installCommonDreamWfFiles(packageRoot, targetRoot) {
+export async function installCommonPitayaFiles(packageRoot, targetRoot) {
   return [
-    await installSpecGuide(packageRoot, targetRoot, 'dream-wf-prd-policy.md'),
-    await installSpecGuide(packageRoot, targetRoot, 'dream-wf-mcp-policy.md')
+    await installSpecGuide(packageRoot, targetRoot, 'pitaya-prd-policy.md'),
+    await installSpecGuide(packageRoot, targetRoot, 'pitaya-mcp-policy.md')
   ];
 }
 
 export async function installRuleFile(packageRoot, targetRoot, sourceRelativePath, targetRelativePath) {
   const contents = await readFile(path.join(packageRoot, sourceRelativePath), 'utf8');
   return writeIfChanged(path.join(targetRoot, targetRelativePath), contents);
+}
+
+// 旧版 dream-wf 写入的区块标记，更新时原位替换成新区块，避免同一文件出现两份入口。
+const LEGACY_BLOCK_MARKERS = [['<!-- DREAM-WF:START -->', '<!-- DREAM-WF:END -->']];
+
+function locateBlock(text, startMarker, endMarker) {
+  const start = text.indexOf(startMarker);
+  const end = text.indexOf(endMarker);
+  if (start === -1 || end === -1 || end <= start) {
+    return undefined;
+  }
+  return { start, end: end + endMarker.length };
 }
 
 export async function installManagedBlock(packageRoot, targetRoot, sourceRelativePath, targetRelativePath, startMarker, endMarker) {
@@ -49,16 +61,11 @@ export async function installManagedBlock(packageRoot, targetRoot, sourceRelativ
     return { changed: true, action: 'created', path: targetPath };
   }
 
-  const start = existing.indexOf(startMarker);
-  const end = existing.indexOf(endMarker);
-  let next;
-
-  if (start !== -1 && end !== -1 && end > start) {
-    const afterEnd = end + endMarker.length;
-    next = `${existing.slice(0, start)}${block.trim()}${existing.slice(afterEnd)}`;
-  } else {
-    next = `${existing.trimEnd()}\n\n${block.trim()}\n`;
-  }
+  const range = locateBlock(existing, startMarker, endMarker)
+    ?? LEGACY_BLOCK_MARKERS.map(([legacyStart, legacyEnd]) => locateBlock(existing, legacyStart, legacyEnd)).find(Boolean);
+  const next = range
+    ? `${existing.slice(0, range.start)}${block.trim()}${existing.slice(range.end)}`
+    : `${existing.trimEnd()}\n\n${block.trim()}\n`;
 
   if (next === existing) {
     return { changed: false, action: 'unchanged', path: targetPath };

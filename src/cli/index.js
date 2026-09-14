@@ -76,7 +76,7 @@ export async function run(argv) {
   assertSupportedPlatform(platform);
 
   if (platform === "pi" && command !== "init" && command !== "update" && command !== "doctor") {
-    throw new Error("Pi supports: dream-wf init|update|doctor -p pi.");
+    throw new Error("Pi supports: pitaya init|update|doctor -p pi.");
   }
 
   const rootDir = process.cwd();
@@ -103,7 +103,7 @@ export async function run(argv) {
 
   if (command === "uninstall") {
     throw new Error(
-      "uninstall is planned but not implemented in this MVP. Remove dream-wf generated files manually if needed.",
+      "uninstall is planned but not implemented in this MVP. Remove pitaya generated files manually if needed.",
     );
   }
 
@@ -135,7 +135,7 @@ async function init(rootDir, options) {
         "",
         "Pi 已安装；当前项目尚未初始化 Trellis。",
         `Run: ${trellis.initCommand}`,
-        "Then rerun dream-wf init -p pi.",
+        "Then rerun pitaya init -p pi.",
       ].join("\n"));
       return;
     }
@@ -171,7 +171,7 @@ async function init(rootDir, options) {
       [
         "Trellis is not initialized in this project.",
         `Run: ${trellis.initCommand}`,
-        "Then rerun dream-wf init.",
+        "Then rerun pitaya init.",
       ].join("\n"),
     );
     return;
@@ -332,7 +332,7 @@ function readOptionValue(arg, rest, index) {
 }
 
 function formatInstallReport(rootDir, results) {
-  const lines = ["dream-wf install report:"];
+  const lines = ["pitaya install report:"];
   for (const result of results.flat().filter(Boolean)) {
     const suffix = result.reason ? ` (${result.reason})` : "";
     lines.push(
@@ -346,34 +346,85 @@ function writeOutput(message) {
   process.stdout.write(`${message}\n`);
 }
 
-function formatBanner() {
-  const banner = [
-    "███████╗  ███████╗   ███████╗  ███████╗  ███╗   ███╗",
-    "██╔═══██╗ ██╔═══██╗ ██╔═════╝ ██╔═══██╗ ████╗ ████║",
-    "██║    ██║██████╔═╝ ███████╗  ███████╔╝ ██╔████╔██║",
-    "██║    ██║██╔═══██╗ ██╔════╝  ██╔═══██╗ ██║╚██╔╝██║",
-    "███████╔╝ ██║   ██║ ███████╗  ██║   ██║ ██║ ╚═╝ ██║",
-    "╚══════╝  ╚═╝   ╚═╝ ╚══════╝  ╚═╝   ╚═╝ ╚═╝     ╚═╝",
-    `  Dream WorkFlow v${packageVersion}`,
-  ].join("\n");
+// 火龙果切面图标：█▄▀▐▌ 果皮，◤◥◣◢ 叶尖，░ 果肉，• 籽，空格透明。每行 18 列。
+const PITAYA_ICON = [
+  "    ▄▄██████▄▄    ",
+  " ◤▄██░░░░•░░░██▄◥ ",
+  " ▐██░░•░░░░•░░██▌ ",
+  " ▐██░░░░•░░░•░██▌ ",
+  " ◣▀██░░•░░░░░██▀◢ ",
+  "    ▀▀██████▀▀    ",
+];
 
+const ICON_TONES = {
+  "█": "skin", "▄": "skin", "▀": "skin", "▐": "skin", "▌": "skin",
+  "◤": "fin", "◥": "fin", "◣": "fin", "◢": "fin",
+  "░": "flesh", "•": "seed",
+};
+
+// 256 色终端用火龙果本色：果皮洋红、叶尖翠绿、果肉铺白底、籽是白底上的深灰点。
+// 只有 16 色时退到基础亮色。
+const BANNER_PALETTES = {
+  256: { skin: "38;5;198", fin: "38;5;76", flesh: "48;5;255", seed: "38;5;235;48;5;255" },
+  16: { skin: "95", fin: "92", flesh: "107", seed: "30;107" },
+};
+
+function bannerPalette() {
   if (!process.stdout.isTTY || process.env.NO_COLOR) {
-    return banner;
+    return undefined;
   }
+  const deep = typeof process.stdout.hasColors === "function" && process.stdout.hasColors(256);
+  return BANNER_PALETTES[deep ? 256 : 16];
+}
 
-  return `\u001B[35m${banner}\u001B[0m`;
+function paint(text, code) {
+  return `\u001B[${code}m${text}\u001B[0m`;
+}
+
+// 有颜色时果肉用背景色铺成实心白底，无颜色时保留 ░ 字形保证黑白终端也能看出切面。
+function paintIconRow(row, palette) {
+  if (!palette) {
+    return row;
+  }
+  const segments = [];
+  for (const char of row) {
+    const tone = ICON_TONES[char];
+    const text = tone === "flesh" ? " " : char;
+    const last = segments[segments.length - 1];
+    if (last && last.tone === tone) {
+      last.text += text;
+    } else {
+      segments.push({ tone, text });
+    }
+  }
+  return segments
+    .map(({ tone, text }) => (tone ? paint(text, palette[tone]) : text))
+    .join("");
+}
+
+// banner 只有图标，不带文字标；版本号以暗色居中放在图标下方。
+function formatBanner() {
+  const palette = bannerPalette();
+  const width = [...PITAYA_ICON[0]].length;
+  const version = `v${packageVersion}`;
+  const indent = " ".repeat(Math.max(0, Math.floor((width - version.length) / 2)));
+  return [
+    ...PITAYA_ICON.map((row) => paintIconRow(row, palette)),
+    `${indent}${palette ? paint(version, "2") : version}`,
+  ].join("\n");
 }
 
 function helpText() {
   return [
-    `dream-wf v${packageVersion} · Trellis workflow 安装聚合器`,
+    `pitaya v${packageVersion} · Trellis workflow 安装聚合器`,
+    "npm 包名 pitayaflow（npx pitayaflow ...），全局安装后命令为 pitaya。",
     "",
     "Usage:",
-    "  dream-wf                         # 交互式 TUI（推荐）",
-    "  dream-wf interactive             # 同上",
-    "  dream-wf init -p <cursor|claude|opencode|codex|pi> [options]",
-    "  dream-wf doctor -p <cursor|claude|opencode|codex|pi>",
-    "  dream-wf update -p <cursor|claude|opencode|codex|pi>",
+    "  pitaya                         # 交互式 TUI（推荐）",
+    "  pitaya interactive             # 同上",
+    "  pitaya init -p <cursor|claude|opencode|codex|pi> [options]",
+    "  pitaya doctor -p <cursor|claude|opencode|codex|pi>",
+    "  pitaya update -p <cursor|claude|opencode|codex|pi>",
     "",
     "Options:",
     "  -p, --platform <platform>       cursor|claude|opencode|codex|pi",
@@ -388,7 +439,7 @@ function helpText() {
     "  --install-deps --developer <n>  自动初始化 Trellis",
     "",
     "Skill ids:",
-    "  trellis-dream-wf-patch, dream-wf-mcp-policy",
+    "  trellis-pitaya-patch, pitaya-mcp-policy",
     "",
     "MCP ids:",
     "  fast-context, grok-search",
@@ -397,11 +448,11 @@ function helpText() {
     `  ${PI_PLUGIN_CATALOG.map((plugin) => plugin.id).join(", ")}`,
     "",
     "Examples:",
-    "  npx dream-wf",
-    "  npx dream-wf init -p cursor",
-    "  npx dream-wf init -p pi",
-    "  npx dream-wf init -p pi --pi-plugins nano-context,mcp-adapter",
-    "  npx dream-wf init -p claude --skills trellis-dream-wf-patch --mcps fast-context",
-    "  npx dream-wf doctor -p codex",
+    "  npx pitayaflow",
+    "  npx pitayaflow init -p cursor",
+    "  npx pitayaflow init -p pi",
+    "  npx pitayaflow init -p pi --pi-plugins nano-context,mcp-adapter",
+    "  npx pitayaflow init -p claude --skills trellis-pitaya-patch --mcps fast-context",
+    "  npx pitayaflow doctor -p codex",
   ].join("\n");
 }

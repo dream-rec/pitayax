@@ -1,14 +1,23 @@
-# DREAM-WORKFLOW
+# Pitaya
 
-面向 Pi、Codex、Claude Code、OpenCode 和 Cursor 的 Workflow patch 安装聚合器。
+```text
+    ▄▄██████▄▄
+ ◤▄██░░░░•░░░██▄◥
+ ▐██░░•░░░░•░░██▌
+ ▐██░░░░•░░░•░██▌
+ ◣▀██░░•░░░░░██▀◢
+    ▀▀██████▀▀
+```
 
-`dream-wf` 不替代 Trellis。它是在 Trellis 之上安装一组项目级个人 workflow 约束，同时聚合配置 MCP servers 和 skills；也可以安装 Pi 及配套扩展：
+面向 Pi、Codex、Claude Code、OpenCode 和 Cursor 的 Workflow patch 安装聚合器。npm 包名是 `pitayaflow`（`pitaya` 在 npm 上已被占用），命令名是 `pitaya`：用 `npx pitayaflow ...` 直接运行，或 `npm install -g pitayaflow` 后直接输入 `pitaya ...`。
+
+`pitaya` 不替代 Trellis。它是在 Trellis 之上安装一组项目级个人 workflow 约束，同时聚合配置 MCP servers 和 skills；也可以安装 Pi 及配套扩展：
 
 - 平台选择：Pi / Cursor / Claude Code / OpenCode / Codex
-- Skill 安装：`dream-wf-grill-prd`（Trellis patch · grill-me 风格 PRD）、`dream-wf-mcp-policy`（MCP 优先级策略）
+- Skill 安装：`pitaya-grill-prd`（Trellis patch · grill-me 风格 PRD）、`pitaya-mcp-policy`（MCP 优先级策略）
 - MCP 配置：`fast-context-mcp`（代码语义检索）、`grok-search-mcp`（外部文档/实时网络检索）
 - 交互式 TUI：上下选择、space 选中、enter 下一步/安装
-- PRD 澄清自动采用 grill-me 风格，用户不需要显式提到 `dream-wf`
+- PRD 澄清自动采用 grill-me 风格，用户不需要显式提到 `pitaya`
 - Trellis 原生的任务生命周期、spec、hooks、skills、sub-agents、checks 和 finish-work 保持不变
 - strict 模式会阻止无活跃任务或 PRD 未确认时的实现类操作
 
@@ -17,7 +26,7 @@
 ### 交互式 TUI（推荐）
 
 ```bash
-npx dream-wf
+npx pitayaflow
 ```
 
 无参数时自动进入 TUI：
@@ -39,11 +48,11 @@ npx dream-wf
 ### 命令行模式
 
 ```bash
-npx dream-wf init -p cursor
-npx dream-wf init -p claude
-npx dream-wf init -p opencode
-npx dream-wf init -p codex
-npx dream-wf init -p pi
+npx pitayaflow init -p cursor
+npx pitayaflow init -p claude
+npx pitayaflow init -p opencode
+npx pitayaflow init -p codex
+npx pitayaflow init -p pi
 ```
 
 `-p` 是必填参数。默认安装范围是项目级，默认模式是 `strict`，默认安装全部 skills 和 MCPs。
@@ -51,11 +60,11 @@ npx dream-wf init -p pi
 ## 命令
 
 ```bash
-npx dream-wf                                  # 交互式 TUI
-npx dream-wf interactive                      # 同上
-npx dream-wf init -p <platform> [options]
-npx dream-wf doctor -p <platform>
-npx dream-wf update -p <platform>
+npx pitayaflow                                  # 交互式 TUI
+npx pitayaflow interactive                      # 同上
+npx pitayaflow init -p <platform> [options]
+npx pitayaflow doctor -p <platform>
+npx pitayaflow update -p <platform>
 ```
 
 参数：
@@ -74,8 +83,8 @@ npx dream-wf update -p <platform>
 
 Skill ids：
 
-- `trellis-dream-wf-patch`（dream-wf-grill-prd）
-- `dream-wf-mcp-policy`
+- `trellis-pitaya-patch`（pitaya-grill-prd）
+- `pitaya-mcp-policy`
 
 MCP ids：
 
@@ -86,7 +95,7 @@ MCP ids：
 
 | 平台 | 入口规则 | Skills 目录 | Hook 类型 | MCP 配置文件 |
 |------|---------|------------|----------|-------------|
-| Cursor | `.cursor/rules/dream-wf.mdc` | `.cursor/skills/` | `preToolUse` (python) | `.cursor/mcp.json` |
+| Cursor | `.cursor/rules/pitaya.mdc` | `.cursor/skills/` | `preToolUse` (python) | `.cursor/mcp.json` |
 | Claude Code | `CLAUDE.md` | `.claude/skills/` | `PreToolUse` (python) | `.mcp.json` |
 | OpenCode | `AGENTS.md` | `.opencode/skills/` | `tool.execute.before` plugin (js) | `opencode.json` |
 | Codex | `AGENTS.md` | `.codex/skills/` | `PreToolUse` (python, hooks.json) | `.codex/config.toml` |
@@ -108,14 +117,14 @@ MCP ids：
 ## Pi 安装
 
 ```bash
-npx dream-wf init -p pi
+npx pitayaflow init -p pi
 ```
 
 只装其中一部分：
 
 ```bash
-npx dream-wf init -p pi --pi-plugins nano-context,mcp-adapter
-npx dream-wf init -p pi --skip-pi-plugins
+npx pitayaflow init -p pi --pi-plugins nano-context,mcp-adapter
+npx pitayaflow init -p pi --skip-pi-plugins
 ```
 
 该命令会：
@@ -130,7 +139,7 @@ npx dream-wf init -p pi --skip-pi-plugins
 8. 执行检查：
 
 ```bash
-npx dream-wf doctor -p pi
+npx pitayaflow doctor -p pi
 ```
 
 重复执行是幂等的：没有变化时 install report 全是 `unchanged`，不会产生多余的 npm 写入。
@@ -139,7 +148,7 @@ npx dream-wf doctor -p pi
 
 `pi install npm:foo@1.2.3` 只会把 `^1.2.3` 写进 `~/.pi/agent/npm/package.json`，npm 实际解析的是该范围内的**最新**版本（实测 `pi-mcp-adapter@2.15.0` 会装成 `2.31.0`）。`settings.json` 里的钉版本只能阻止 `pi update`，管不住 npm 解析。
 
-所以 `dream-wf` 会把选中扩展的依赖范围改写成精确版本再重新解析，这样换机器装出来的才是同一组合。`doctor` 会逐个比对实际版本，漂移时报错并提示 `dream-wf update -p pi` 修复。用户自行安装、不在清单内的扩展不受影响。
+所以 `pitaya` 会把选中扩展的依赖范围改写成精确版本再重新解析，这样换机器装出来的才是同一组合。`doctor` 会逐个比对实际版本，漂移时报错并提示 `pitaya update -p pi` 修复。用户自行安装、不在清单内的扩展不受影响。
 
 ### 扩展适配
 
@@ -147,7 +156,7 @@ npx dream-wf doctor -p pi
 
 **`pi-tool-display` 与 AFT 的工具归属** —— AFT 默认接管 `read`、`write`、`edit`、`grep` 和 `bash` 的执行及渲染；`pi-tool-display` 不重复覆盖这些工具，只保留 `find`、`ls`、MCP 输出、用户消息框和 thinking 标签。看到 `edit` 使用 AFT 样式是预期行为，并不表示 `pi-tool-display` 失效。安装器只在配置文件不存在时写入这套默认归属，不覆盖用户已有配置。
 
-**`pi-nano-context` 的 footer 冲突** —— 它会注册自己的 footer，与 `pi-cometix-footer` 抢占底部状态栏。安装后剥掉它的 footer 注册。这是直接改 `node_modules` 内的文件，任何一次 `pi install`/`pi update` 都会还原，重跑 `dream-wf update -p pi` 即可。
+**`pi-nano-context` 的 footer 冲突** —— 它会注册自己的 footer，与 `pi-cometix-footer` 抢占底部状态栏。安装后剥掉它的 footer 注册。这是直接改 `node_modules` 内的文件，任何一次 `pi install`/`pi update` 都会还原，重跑 `pitaya update -p pi` 即可。
 
 **`pi-cometix-footer` 的窄窗口布局** —— 上游会把整个 footer 截成一行，终端变窄时后半段溢出并被遮挡。安装器改为按当前宽度保留 ANSI 样式地自动换行，同时隐藏重复的 `⚡ ...% .../...` 上下文段和 Magic Context 的 `mc: ... · idle` 状态。补丁带版本标记，`doctor` 不会把上游仅添加了同名 import 的情况误判为已修复。
 
@@ -162,12 +171,12 @@ npx dream-wf doctor -p pi
 
 ### 模型配置
 
-`dream-wf` **不管** `~/.pi/agent/models.json`，也不写 `defaultProvider` / `defaultModel` / `httpProxy` —— 这些属于账号和机器特有配置。API key 不写入安装器或 Git。装完后用 Pi 的 `/providers` 面板自行配置 provider 和模型。
+`pitaya` **不管** `~/.pi/agent/models.json`，也不写 `defaultProvider` / `defaultModel` / `httpProxy` —— 这些属于账号和机器特有配置。API key 不写入安装器或 Git。装完后用 Pi 的 `/providers` 面板自行配置 provider 和模型。
 
 升级 Pi 及扩展时执行：
 
 ```bash
-npx dream-wf update -p pi
+npx pitayaflow update -p pi
 ```
 
 ## 平台前置条件
@@ -176,14 +185,14 @@ npx dream-wf update -p pi
 
 - Node.js >= 18（建议使用当前 LTS）
 - npm
-- Pi 使用 `npx dream-wf init -p pi` 时，会自动安装固定版本 Pi CLI
+- Pi 使用 `npx pitayaflow init -p pi` 时，会自动安装固定版本 Pi CLI
 - 若使用 Trellis 自动初始化，需要 Python >= 3.9；Windows 请在安装 Python 时勾选加入 PATH
 - 使用 `grok-search-mcp` 需要 `uvx`；Windows、macOS、Ubuntu 都应按官方文档安装 uv
 
 无 TTY 的 CI 或脚本环境不要调用无参数 TUI，改用显式 CLI，例如：
 
 ```bash
-npx dream-wf init -p pi --yes
+npx pitayaflow init -p pi --yes
 ```
 
 ## Trellis
@@ -194,7 +203,7 @@ npx dream-wf init -p pi --yes
 npm install -g @mindfoldhq/trellis@latest
 ```
 
-先初始化 Trellis，或者让 `dream-wf` 输出对应的初始化命令：
+先初始化 Trellis，或者让 `pitaya` 输出对应的初始化命令：
 
 ```bash
 trellis init -u your-name --cursor --yes
@@ -208,7 +217,7 @@ trellis init -u your-name --pi --yes
 
 来源：https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md
 
-`dream-wf` 会安装项目级 `dream-wf-grill-prd` skill，用于复用 grill-me 的交互风格：
+`pitaya` 会安装项目级 `pitaya-grill-prd` skill，用于复用 grill-me 的交互风格：
 
 - 一次只问一个问题。
 - 给出选项和推荐答案。
@@ -273,44 +282,44 @@ MCP server 配置示例：
 
 Cursor：
 
-- `.cursor/rules/dream-wf.mdc`
-- `.cursor/skills/dream-wf-grill-prd/SKILL.md`
-- `.cursor/skills/dream-wf-mcp-policy/SKILL.md`
-- `.cursor/hooks/dream-wf-guard.py`
+- `.cursor/rules/pitaya.mdc`
+- `.cursor/skills/pitaya-grill-prd/SKILL.md`
+- `.cursor/skills/pitaya-mcp-policy/SKILL.md`
+- `.cursor/hooks/pitaya-guard.py`
 - `.cursor/hooks.json`
 - `.cursor/mcp.json`
 
 Claude Code：
 
-- `CLAUDE.md` dream-wf entry block
-- `.claude/skills/dream-wf-grill-prd/SKILL.md`
-- `.claude/skills/dream-wf-mcp-policy/SKILL.md`
-- `.claude/hooks/dream-wf-guard.py`
+- `CLAUDE.md` pitaya entry block
+- `.claude/skills/pitaya-grill-prd/SKILL.md`
+- `.claude/skills/pitaya-mcp-policy/SKILL.md`
+- `.claude/hooks/pitaya-guard.py`
 - `.claude/settings.json`
 - `.mcp.json`
 
 OpenCode：
 
-- `AGENTS.md` dream-wf entry block
-- `.opencode/skills/dream-wf-grill-prd/SKILL.md`
-- `.opencode/skills/dream-wf-mcp-policy/SKILL.md`
-- `.opencode/plugins/dream-wf-guard.js`
+- `AGENTS.md` pitaya entry block
+- `.opencode/skills/pitaya-grill-prd/SKILL.md`
+- `.opencode/skills/pitaya-mcp-policy/SKILL.md`
+- `.opencode/plugins/pitaya-guard.js`
 - `opencode.json`
 
 Codex：
 
-- `AGENTS.md` dream-wf entry block
-- `.codex/skills/dream-wf-grill-prd/SKILL.md`
-- `.codex/skills/dream-wf-mcp-policy/SKILL.md`
-- `.codex/hooks/dream-wf-guard.py`
+- `AGENTS.md` pitaya entry block
+- `.codex/skills/pitaya-grill-prd/SKILL.md`
+- `.codex/skills/pitaya-mcp-policy/SKILL.md`
+- `.codex/hooks/pitaya-guard.py`
 - `.codex/hooks.json`
 - `.codex/config.toml`（含 `[features] hooks = true` 和 `[mcp_servers.*]`）
 
 Trellis：
 
-- 向 `.trellis/workflow.md` 追加 `Dream WF Profile` 区块。
-- 安装 `.trellis/spec/guides/dream-wf-prd-policy.md`。
-- 安装 `.trellis/spec/guides/dream-wf-mcp-policy.md`。
+- 向 `.trellis/workflow.md` 追加 `Pitaya Profile` 区块。
+- 安装 `.trellis/spec/guides/pitaya-prd-policy.md`。
+- 安装 `.trellis/spec/guides/pitaya-mcp-policy.md`。
 
 ## Strict 模式
 
@@ -327,13 +336,31 @@ confirmed: true
 status: confirmed
 ```
 
+## 从 dream-wf 迁移
+
+产品由 `dream-wf` 更名为 `pitaya`。在已经装过 `dream-wf` 的项目里执行 `npx pitayaflow update -p <platform>`，安装器会自动：
+
+- 把 `CLAUDE.md` / `AGENTS.md` / `~/.pi/agent/APPEND_SYSTEM.md` 里的 `<!-- DREAM-WF:START -->` 区块原位替换为 `<!-- PITAYA:START -->` 区块；
+- 把 `.trellis/workflow.md` 里的 `dream-wf:profile:v1` 区块原位替换为 `pitaya:profile:v1` 区块；
+- 把 `.claude/settings.json`、`.codex/hooks.json`、`.cursor/hooks.json` 里指向 `dream-wf-guard.py` 的 hook 命令改为 `pitaya-guard.py`。
+
+下面这些旧文件不会自动删除，请手动清理，否则会和新文件同时生效：
+
+- `.cursor/rules/dream-wf.mdc`、`.cursor/hooks/dream-wf-guard.py`
+- `.claude/hooks/dream-wf-guard.py`、`.codex/hooks/dream-wf-guard.py`
+- `.opencode/plugins/dream-wf-guard.js`
+- 各平台 skills 目录下的 `dream-wf-grill-prd/`、`dream-wf-mcp-policy/`
+- `.trellis/spec/guides/dream-wf-prd-policy.md`、`.trellis/spec/guides/dream-wf-mcp-policy.md`
+
+strict 模式的逃生舱环境变量由 `DREAM_WF_MODE=advisory` 改为 `PITAYA_MODE=advisory`。
+
 ## 安全检查
 
 提交前运行 doctor：
 
 ```bash
-npx dream-wf doctor -p cursor
-npx dream-wf doctor -p codex
+npx pitayaflow doctor -p cursor
+npx pitayaflow doctor -p codex
 ```
 
 doctor 会检查：

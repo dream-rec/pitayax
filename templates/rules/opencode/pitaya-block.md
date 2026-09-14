@@ -1,34 +1,19 @@
----
-description: Dream WF Trellis workflow entrypoint
-alwaysApply: true
----
+<!-- PITAYA:START -->
+# Pitaya Entry
 
-# Dream WF Entry
-
-For every software engineering request in this project, use the Dream WF profile on top of Trellis by default. The user does not need to mention Trellis or dream-wf.
+For every software engineering request in this project, use the Pitaya profile on top of Trellis by default. The user does not need to mention Trellis or pitaya.
 
 ## Default Routing
 
 - First classify the request using Trellis task classification.
 - For conversation-only or tiny inline work, ask whether a Trellis task is needed only if durable tracking would help.
-- For feature work, bug fixes with uncertainty, refactors, architecture decisions, multi-file changes, or any unclear request, create/use a Trellis planning task before implementation.
+- For feature work, bug fixes with uncertainty, refactors, architecture decisions, multi-file changes, or unclear requests, create/use a Trellis planning task before implementation.
 
 ## PRD First, Grill-Me Style
 
-During planning, do not start by drafting and writing a speculative PRD.
+During planning, do not start by drafting and writing a speculative PRD. Use `pitaya-grill-prd` behavior first: inspect available context, ask exactly one high-value question at a time, provide 2-3 options and a recommended answer, then update `prd.md` after the user answers.
 
-Instead:
-
-1. Invoke/use the `dream-wf-grill-prd` skill behavior first.
-2. Inspect code, docs, config, existing specs, and task history before asking the user.
-3. Ask exactly one high-value question at a time.
-4. Provide 2-3 options and a recommended answer.
-5. After the user answers, update `prd.md`.
-6. Repeat until blocking open questions are resolved.
-7. **Knowledge Verification**: before asking for PRD confirmation, verify technical assumptions against latest knowledge using `grok-search-mcp` (`web_search`, `web_fetch`). Record results in the `## Knowledge Verification` section of `prd.md`. Correct any outdated assumptions. Add `knowledge verified` to the PRD after verification is complete.
-8. Ask for explicit PRD confirmation before implementation.
-
-## Implementation Gate
+Before requesting PRD confirmation, verify technical assumptions against latest knowledge using `grok-search-mcp` (`web_search`, `web_fetch`). Record results in the `## Knowledge Verification` section of `prd.md`. Correct any outdated assumptions. Add `knowledge verified` to the PRD after verification is complete.
 
 Do not start implementation until the active Trellis task has a confirmed PRD. Planning artifacts such as `prd.md`, `design.md`, `implement.md`, `implement.jsonl`, `check.jsonl`, and `research/**` are allowed during planning.
 
@@ -55,3 +40,4 @@ Do not start implementation until the active Trellis task has a confirmed PRD. P
 - Prefer concise file names.
 - Use one word when one word clearly describes the purpose, such as `pipeline`.
 - When multiple words are necessary, use lowercase snake_case, such as `paper_extract`.
+<!-- PITAYA:END -->

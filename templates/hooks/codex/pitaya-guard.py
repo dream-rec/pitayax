@@ -96,8 +96,8 @@ def allow():
 
 
 def main():
-    # 逃生舱：DREAM_WF_MODE=advisory 时跳过 strict 检查。
-    if os.environ.get("DREAM_WF_MODE", "").lower() == "advisory":
+    # 逃生舱：PITAYA_MODE=advisory 时跳过 strict 检查。
+    if os.environ.get("PITAYA_MODE", "").lower() == "advisory":
         allow()
 
     try:
@@ -120,7 +120,7 @@ def main():
 
     tasks = active_tasks(root)
     if not tasks:
-        deny("dream-wf strict: mutating actions require an active Trellis task. Create or start a Trellis task first, or switch dream-wf to advisory mode (DREAM_WF_MODE=advisory).")
+        deny("pitaya strict: mutating actions require an active Trellis task. Create or start a Trellis task first, or switch pitaya to advisory mode (PITAYA_MODE=advisory).")
 
     if is_planning_artifact(root, tool_input):
         allow()
@@ -141,7 +141,7 @@ def main():
         if task.get("status") == "planning" and not is_prd_confirmed(task_dir)
     ]
     if planning_unconfirmed:
-        deny("dream-wf strict: implementation is blocked while all active tasks are in planning and at least one PRD is not confirmed. Continue grill-me PRD clarification first. Planning artifacts under .trellis/tasks/** are allowed.")
+        deny("pitaya strict: implementation is blocked while all active tasks are in planning and at least one PRD is not confirmed. Continue grill-me PRD clarification first. Planning artifacts under .trellis/tasks/** are allowed.")
 
     allow()
 

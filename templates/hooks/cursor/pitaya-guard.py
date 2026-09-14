@@ -73,28 +73,21 @@ def is_planning_artifact(root, tool_input):
 
 def deny(message):
     print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": message
-        }
+        "permission": "deny",
+        "user_message": message,
+        "agent_message": message
     }))
     sys.exit(0)
 
 
 def allow():
-    print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "allow"
-        }
-    }))
+    print(json.dumps({"permission": "allow"}))
     sys.exit(0)
 
 
 def main():
-    # 逃生舱：DREAM_WF_MODE=advisory 时跳过 strict 检查。
-    if os.environ.get("DREAM_WF_MODE", "").lower() == "advisory":
+    # 逃生舱：PITAYA_MODE=advisory 时跳过 strict 检查。
+    if os.environ.get("PITAYA_MODE", "").lower() == "advisory":
         allow()
 
     try:
@@ -104,7 +97,7 @@ def main():
 
     tool_name = payload.get("tool_name") or payload.get("tool", "")
     tool_input = payload.get("tool_input") or payload.get("input") or {}
-    cwd = payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    cwd = payload.get("cwd") or os.getcwd()
     root = find_root(cwd)
 
     is_mutating = tool_name in MUTATING_TOOLS
@@ -117,13 +110,11 @@ def main():
 
     tasks = active_tasks(root)
     if not tasks:
-        deny("dream-wf strict: mutating actions require an active Trellis task. Create or start a Trellis task first, or switch dream-wf to advisory mode (DREAM_WF_MODE=advisory).")
+        deny("pitaya strict: mutating actions require an active Trellis task. Create or start a Trellis task first, or switch pitaya to advisory mode (PITAYA_MODE=advisory).")
 
-    # 规划产物始终允许，便于在 planning 阶段编写 prd/design 等。
     if is_planning_artifact(root, tool_input):
         allow()
 
-    # 若存在已确认的 in_progress 任务，允许实现操作，不被其它 stale planning 任务阻塞。
     in_progress_confirmed = any(
         task.get("status") == "in_progress" and is_prd_confirmed(task_dir)
         for task_dir, task in tasks
@@ -135,13 +126,12 @@ def main():
     if in_progress_any:
         allow()
 
-    # 剩余情况：所有活跃任务都是 planning。若任一未确认 PRD，则阻塞实现。
     planning_unconfirmed = [
         task_dir for task_dir, task in tasks
         if task.get("status") == "planning" and not is_prd_confirmed(task_dir)
     ]
     if planning_unconfirmed:
-        deny("dream-wf strict: implementation is blocked while all active tasks are in planning and at least one PRD is not confirmed. Continue grill-me PRD clarification first. Planning artifacts under .trellis/tasks/** are allowed.")
+        deny("pitaya strict: implementation is blocked while all active tasks are in planning and at least one PRD is not confirmed. Continue grill-me PRD clarification first. Planning artifacts under .trellis/tasks/** are allowed.")
 
     allow()
 

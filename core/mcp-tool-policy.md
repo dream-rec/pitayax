@@ -1,6 +1,6 @@
 # MCP Tool Policy
 
-`dream-wf` uses MCP tools deliberately. Classify the information need before searching.
+`pitaya` uses MCP tools deliberately. Classify the information need before searching.
 
 ## Preferred Tools
 

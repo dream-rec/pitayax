@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises';
-import { installCommonDreamWfFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
+import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
 import { installMcpServers } from '../../lib/mcp.js';
 import { readJsonObject, writeJsonObject } from '../../lib/json.js';
 import { defaultPiPluginIds, isPluginInstalled, packageVersionFromSource, resolvePiPlugins } from './catalog.js';
@@ -31,9 +31,9 @@ function piCliVersionMatches() {
 
 export async function installPiProject(packageRoot, targetRoot, options) {
   const results = [];
-  results.push(await installManagedBlock(packageRoot, targetRoot, 'templates/rules/codex/dream-wf-block.md', 'AGENTS.md', '<!-- DREAM-WF:START -->', '<!-- DREAM-WF:END -->'));
+  results.push(await installManagedBlock(packageRoot, targetRoot, 'templates/rules/codex/pitaya-block.md', 'AGENTS.md', '<!-- PITAYA:START -->', '<!-- PITAYA:END -->'));
   results.push(...await installSelectedSkills(packageRoot, targetRoot, '.agents', options.skills));
-  results.push(...await installCommonDreamWfFiles(packageRoot, targetRoot));
+  results.push(...await installCommonPitayaFiles(packageRoot, targetRoot));
 
   // pi-mcp-adapter 原生读取项目根 .mcp.json；使用共享格式也方便其他客户端复用。
   if (options.mcps && options.mcps.length > 0) {
@@ -99,7 +99,7 @@ export async function ensurePiConfig(packageRoot) {
     results.push({ changed: true, action: 'updated', path: settingsPath });
   }
 
-  results.push(await installManagedBlock(packageRoot, agentDir, 'templates/pi/append-system.md', 'APPEND_SYSTEM.md', '<!-- DREAM-WF:START -->', '<!-- DREAM-WF:END -->'));
+  results.push(await installManagedBlock(packageRoot, agentDir, 'templates/pi/append-system.md', 'APPEND_SYSTEM.md', '<!-- PITAYA:START -->', '<!-- PITAYA:END -->'));
   return results;
 }
 

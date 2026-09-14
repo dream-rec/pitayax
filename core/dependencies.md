@@ -1,6 +1,6 @@
 # Dependencies
 
-`dream-wf` expects Trellis plus two MCP servers and the grill-me skill behavior.
+`pitaya` expects Trellis plus two MCP servers and the grill-me skill behavior.
 
 ## Trellis
 
@@ -22,7 +22,7 @@ trellis init -u your-name --opencode
 
 Source: https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md
 
-`dream-wf` vendors the behavior as `dream-wf-grill-prd` rather than depending on a global skill installer.
+`pitaya` vendors the behavior as `pitaya-grill-prd` rather than depending on a global skill installer.
 
 ## Fast Context MCP
 

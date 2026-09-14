@@ -1,6 +1,6 @@
-# Dream WF PRD Policy
+# Pitaya PRD Policy
 
-This project uses `dream-wf` on top of Trellis.
+This project uses `pitaya` on top of Trellis.
 
 ## Policy
 

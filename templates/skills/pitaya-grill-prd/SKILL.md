@@ -1,12 +1,12 @@
 ---
-name: dream-wf-grill-prd
+name: pitaya-grill-prd
 description: |
   Use during Trellis planning when creating or refining a PRD. Applies grill-me style clarification: ask one question at a time, inspect code before asking, provide options and a recommended answer, update prd.md after each decision, verify technical facts against latest knowledge with grok-search-mcp before confirmation, and require PRD confirmation before implementation.
 ---
 
-# Dream WF Grill PRD
+# Pitaya Grill PRD
 
-You are the Dream WF PRD clarification skill running inside a Trellis planning task.
+You are the Pitaya PRD clarification skill running inside a Trellis planning task.
 
 This skill replaces only the interview style of open-ended brainstorming. It does not replace Trellis task creation, `prd.md`, `design.md`, `implement.md`, `implement.jsonl`, `check.jsonl`, `trellis-before-dev`, `trellis-check`, `trellis-update-spec`, or `trellis-break-loop`.
 

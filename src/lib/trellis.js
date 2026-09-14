@@ -4,7 +4,10 @@ import { appendBlockOnce, pathExists, readTextIfExists, writeTextFile } from './
 import { runCommand, commandExists } from './runtime.js';
 import { trellisPlatformFlag } from './platforms.js';
 
-const DREAM_WF_MARKER = '<!-- dream-wf:profile:v1 -->';
+const PITAYA_MARKER = '<!-- pitaya:profile:v1 -->';
+const PITAYA_END_MARKER = '<!-- /pitaya:profile:v1 -->';
+// 旧版 dream-wf 写入的 profile 区块，更新时原位替换，避免 workflow.md 里出现两份 profile。
+const LEGACY_PROFILE_MARKERS = ['<!-- dream-wf:profile:v1 -->', '<!-- /dream-wf:profile:v1 -->'];
 
 function writeOutput(message) {
   process.stdout.write(`${message}\n`);
@@ -39,7 +42,7 @@ export async function ensureTrellisInitialized(rootDir, options) {
   }
 
   if (!options.developer) {
-    throw new Error('Pass --developer <name> when using --install-deps so dream-wf can run trellis init non-interactively.');
+    throw new Error('Pass --developer <name> when using --install-deps so pitaya can run trellis init non-interactively.');
   }
 
   // trellis CLI 未安装时，先 npm install -g。
@@ -71,7 +74,16 @@ export async function installTrellisProfile(rootDir) {
     };
   }
 
-  return appendBlockOnce(workflowPath, DREAM_WF_MARKER, dreamWorkflowBlock());
+  const [legacyStart, legacyEnd] = LEGACY_PROFILE_MARKERS;
+  const start = existing.indexOf(legacyStart);
+  const end = existing.indexOf(legacyEnd);
+  if (!existing.includes(PITAYA_MARKER) && start !== -1 && end > start) {
+    const next = `${existing.slice(0, start)}${pitayaWorkflowBlock()}${existing.slice(end + legacyEnd.length)}`;
+    await writeTextFile(workflowPath, next);
+    return { changed: true, action: 'updated', path: workflowPath };
+  }
+
+  return appendBlockOnce(workflowPath, PITAYA_MARKER, pitayaWorkflowBlock());
 }
 
 export async function writeSpecPolicy(rootDir, name, contents) {
@@ -79,22 +91,22 @@ export async function writeSpecPolicy(rootDir, name, contents) {
 }
 
 
-function dreamWorkflowBlock() {
+function pitayaWorkflowBlock() {
   return [
-    DREAM_WF_MARKER,
+    PITAYA_MARKER,
     '',
-    '## Dream WF Profile',
+    '## Pitaya Profile',
     '',
-    'This repository uses `dream-wf` as a Trellis custom patch profile. Trellis remains the source of truth for task lifecycle, specs, workflow state, before-dev, check, update-spec, break-loop, sub-agent context injection, and finish-work.',
+    'This repository uses `pitaya` as a Trellis custom patch profile. Trellis remains the source of truth for task lifecycle, specs, workflow state, before-dev, check, update-spec, break-loop, sub-agent context injection, and finish-work.',
     '',
-    '### Dream WF Planning Override',
+    '### Pitaya Planning Override',
     '',
-    'When a request enters Trellis planning, keep the native Trellis task artifacts and lifecycle, but use the `dream-wf-grill-prd` skill as the PRD clarification method before implementation.',
+    'When a request enters Trellis planning, keep the native Trellis task artifacts and lifecycle, but use the `pitaya-grill-prd` skill as the PRD clarification method before implementation.',
     '',
     'Rules:',
     '',
     '- Keep Trellis task creation, `prd.md`, `design.md`, `implement.md`, `implement.jsonl`, and `check.jsonl`.',
-    '- Do not use Trellis brainstorm as an open-ended interview style when `dream-wf-grill-prd` is available.',
+    '- Do not use Trellis brainstorm as an open-ended interview style when `pitaya-grill-prd` is available.',
     '- Do not start planning by writing a speculative initial PRD. First inspect available context, then ask the first grill-me question.',
     '- Use grill-me behavior for requirement discovery: ask one question at a time, provide 2-3 options and a recommended answer, and inspect code/docs/config before asking the user.',
     '- Update `prd.md` only after a user answer, confirmed existing fact, or explicit decision is available.',
@@ -106,7 +118,7 @@ function dreamWorkflowBlock() {
     '- Prefer concise file names: use one word when clear, or lowercase snake_case for necessary multi-word names.',
     '- Continue using `trellis-before-dev`, `trellis-check`, `trellis-update-spec`, and `trellis-break-loop` without replacing them.',
     '',
-    '### Dream WF MCP Tool Policy',
+    '### Pitaya MCP Tool Policy',
     '',
     'Before searching, classify the need:',
     '',
@@ -115,8 +127,8 @@ function dreamWorkflowBlock() {
     '- External docs, live technical information, and web pages: prefer `grok-search-mcp` / `web_search` or `web_fetch`.',
     '- If the preferred MCP is unavailable, state the fallback reason before using another tool.',
     '',
-    'Read `.trellis/spec/guides/dream-wf-mcp-policy.md` and `.trellis/spec/guides/dream-wf-prd-policy.md` when planning or starting implementation.',
+    'Read `.trellis/spec/guides/pitaya-mcp-policy.md` and `.trellis/spec/guides/pitaya-prd-policy.md` when planning or starting implementation.',
     '',
-    '<!-- /dream-wf:profile:v1 -->'
+    PITAYA_END_MARKER
   ].join('\n');
 }

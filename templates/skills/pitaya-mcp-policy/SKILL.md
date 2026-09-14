@@ -1,10 +1,10 @@
 ---
-name: dream-wf-mcp-policy
+name: pitaya-mcp-policy
 description: |
-  Use before codebase exploration, external documentation lookup, live web research, or webpage fetching. Enforces Dream WF MCP priority: fast-context-mcp for semantic code context and grok-search-mcp for external web/docs/fetch tasks.
+  Use before codebase exploration, external documentation lookup, live web research, or webpage fetching. Enforces Pitaya MCP priority: fast-context-mcp for semantic code context and grok-search-mcp for external web/docs/fetch tasks.
 ---
 
-# Dream WF MCP Policy
+# Pitaya MCP Policy
 
 Classify the information need before choosing a search or fetch tool.
 

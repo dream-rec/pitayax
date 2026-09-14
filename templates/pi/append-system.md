@@ -1,4 +1,4 @@
-<!-- DREAM-WF:START -->
+<!-- PITAYA:START -->
 
 # 个人开发偏好
 
@@ -10,4 +10,4 @@
 - 查找当前项目代码、实现位置、调用关系和模块职责时，优先使用 fast-context-mcp 的 fast_context_search。
 - ctx_search 仅用于查询跨会话记忆、历史对话、notes、primers 和 git 提交记录，不得用于定位当前源码。
 
-<!-- DREAM-WF:END -->
+<!-- PITAYA:END -->

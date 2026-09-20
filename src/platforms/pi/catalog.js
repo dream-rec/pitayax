@@ -4,7 +4,7 @@ import { readJsonObject } from '../../lib/json.js';
 import { piAgentDir, piPackageDir, piSettingsPath } from './paths.js';
 
 // Pi 可选扩展清单。版本全部钉死在本机实测通过的组合上：
-// pi update 会跳过 pinned npm 版本，上游变动不会静默冲掉 repairs 里的两处补丁。
+// pi update 会跳过 pinned npm 版本，上游变动不会静默冲掉 repairs 里的补丁。
 export const PI_PLUGIN_CATALOG = [
   {
     id: 'tool-display',
@@ -20,18 +20,18 @@ export const PI_PLUGIN_CATALOG = [
     name: 'pi-nano-context',
     spec: 'npm:pi-nano-context@0.1.1',
     label: 'pi-nano-context (上下文用量显示)',
-    description: '显示上下文占用。需剥掉它自带的 footer，否则与 cometix-footer 抢占。',
+    description: '显示上下文占用。需剥掉它自带的 footer，否则与 pi-footer 抢占。',
     default: true,
     repairs: ['nano-context-footer']
   },
   {
-    id: 'cometix-footer',
-    name: 'pi-cometix-footer',
-    spec: 'npm:pi-cometix-footer@1.1.1',
-    label: 'pi-cometix-footer (状态栏)',
-    description: '底部状态栏，展示模型、用量和会话信息；自动换行并隐藏重复的上下文状态。',
+    id: 'footer',
+    name: 'pi-footer',
+    spec: 'npm:pi-footer@0.5.1',
+    label: 'pi-footer (状态栏)',
+    description: '可配置的底部状态栏：模型/推理等级、目录与 git 状态分两行，扩展状态另起一行。',
     default: true,
-    repairs: ['cometix-footer-layout']
+    repairs: ['footer-config']
   },
   {
     id: 'mcp-adapter',
@@ -73,6 +73,30 @@ export const PI_PLUGIN_CATALOG = [
     spec: 'npm:@cortexkit/aft-pi@0.53.0',
     label: '@cortexkit/aft-pi (代码工具后端)',
     description: '接管 read/write/edit/grep/bash，并提供索引搜索、结构导航、诊断和安全恢复。',
+    default: true
+  },
+  {
+    id: 'plugin-manager',
+    name: 'pi-plugin-manager',
+    spec: 'npm:pi-plugin-manager@0.2.3',
+    label: 'pi-plugin-manager (插件管理)',
+    description: '/plugins 面板：搜索、安装、禁用扩展与 MCP server，按需关掉不用的工具。',
+    default: true
+  },
+  {
+    id: 'web-access',
+    name: 'pi-web-access',
+    spec: 'npm:pi-web-access@0.28.0',
+    label: 'pi-web-access (联网检索与抓取)',
+    description: '提供 web_search / web_fetch 工具，支持多家搜索后端与网页正文提取。',
+    default: true
+  },
+  {
+    id: 'advisor-flow',
+    name: 'pi-advisor-flow',
+    spec: 'npm:pi-advisor-flow@0.6.0',
+    label: 'pi-advisor-flow (顾问模型)',
+    description: '用更强的模型做顾问、较快的模型做执行；配置在 ~/.pi/agent/advisor.json。',
     default: true
   }
 ];

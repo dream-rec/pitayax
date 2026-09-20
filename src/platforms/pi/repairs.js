@@ -11,25 +11,6 @@ const ONNX_PIN = '1.21.0';
 
 const NANO_CONTEXT_FOOTER = /ctx\.ui\.setFooter\(\(_tui,\s*theme,\s*footerData\)\s*=>\s*\(\{[\s\S]*?renderFooter\(pi,\s*ctx,\s*footerData,\s*width,\s*theme\),[\s\S]*?\}\)\);/;
 const NANO_CONTEXT_FOOTER_CLEANUP = /ctx\.ui\.setFooter\(undefined\);/;
-const COMETIX_FOOTER_IMPORT_WITH_TUI = 'import { truncateToWidth, visibleWidth, wrapTextWithAnsi, type TUI } from "@earendil-works/pi-tui";';
-const COMETIX_FOOTER_IMPORT = 'import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";';
-const COMETIX_FOOTER_OLD_IMPORT_WITH_TUI = 'import { truncateToWidth, visibleWidth, type TUI } from "@earendil-works/pi-tui";';
-const COMETIX_FOOTER_OLD_IMPORT = 'import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";';
-const COMETIX_FOOTER_LAYOUT_MARKER = 'const availableWidth = Math.max(1, width);';
-const COMETIX_FOOTER_OLD_LAYOUT = /\s*let line = segs\.join\(SEG\);\r?\n\s*if \(visibleWidth\(line\) > width\) \{\r?\n\s*line = truncateToWidth\(line, width, ""\);\r?\n\s*\}\r?\n\s*return \[line\];/;
-const COMETIX_FOOTER_NEW_LAYOUT = `
-					const line = segs.join(SEG);
-					const availableWidth = Math.max(1, width);
-					return wrapTextWithAnsi(line, availableWidth).map((wrappedLine) =>
-						visibleWidth(wrappedLine) > availableWidth
-							? truncateToWidth(wrappedLine, availableWidth, "")
-							: wrappedLine,
-					);
-`;
-const COMETIX_FOOTER_CONTEXT_BLOCK = /\r?\n\s*\/\/ context window: e\.g\. "4% 13k\/272k"[\s\S]*?const ctxSeg = paint\(ctxColor, `\$\{ICONS\.ctx\} \$\{pctStr\} \$\{tokStr\}\/\$\{winStr\}`\);\r?\n/;
-const COMETIX_FOOTER_CONTEXT_PUSH = /\r?\n\s*segs\.push\(ctxSeg, tokSeg\);/;
-const COMETIX_FOOTER_MAGIC_STATUS_FILTER = /\s*\.sort\(\(\[a\], \[b\]\) => a\.localeCompare\(b\)\)/;
-const COMETIX_FOOTER_REPAIR_MARKER = 'const availableWidth = Math.max(1, width);';
 
 // onnxruntime-node 1.22+ 的发布包只带 darwin/arm64 二进制，没有 darwin/x64。
 // Intel Mac 上不把它压回 1.21.0，magic-context 依赖的 transformers 就加载不起来。
@@ -152,43 +133,24 @@ export const REPAIRS = {
     }
   },
 
-  'cometix-footer-layout': {
-    label: 'pi-cometix-footer 自适应布局与精简状态',
+  'footer-config': {
+    label: 'pi-footer 状态栏布局',
     phase: 'files',
-    async apply({ agentDir }) {
-      const footerPath = path.join(piPackageDir('pi-cometix-footer', agentDir), 'index.ts');
-      const source = await readTextIfExists(footerPath);
-      if (!source) {
-        return { changed: false, action: 'skipped', path: footerPath, reason: 'pi-cometix-footer 未安装' };
+    async apply({ agentDir, packageRoot }) {
+      const configPath = path.join(piExtensionsDir(agentDir), 'pi-footer.json');
+      // 已存在说明用户在 /footer 里调过，不覆盖。
+      if (await pathExists(configPath)) {
+        return { changed: false, action: 'unchanged', path: configPath };
       }
-
-      let next = source
-        .replace(COMETIX_FOOTER_OLD_IMPORT_WITH_TUI, COMETIX_FOOTER_IMPORT_WITH_TUI)
-        .replace(COMETIX_FOOTER_OLD_IMPORT, COMETIX_FOOTER_IMPORT);
-      next = next.replace(COMETIX_FOOTER_CONTEXT_BLOCK, '\n');
-      next = next.replace(COMETIX_FOOTER_CONTEXT_PUSH, '\n\t\t\t\t\tsegs.push(tokSeg);');
-      next = next.replace(COMETIX_FOOTER_MAGIC_STATUS_FILTER, '\n\t\t\t\t\t\t\t.filter(([key]) => key !== "magic-context")\n\t\t\t\t\t\t\t.sort(([a], [b]) => a.localeCompare(b))');
-      next = next.replace(COMETIX_FOOTER_OLD_LAYOUT, COMETIX_FOOTER_NEW_LAYOUT);
-
-      const hasRequiredLayout = next.includes(COMETIX_FOOTER_REPAIR_MARKER) && next.includes(COMETIX_FOOTER_LAYOUT_MARKER) && next.includes('return wrapTextWithAnsi(line, availableWidth).map');
-      const hasRemovedContext = !next.includes('const ctxSeg = paint(') && next.includes('segs.push(tokSeg);');
-      const hasFilteredMagicContext = next.includes('.filter(([key]) => key !== "magic-context")');
-      if (!hasRequiredLayout || !hasRemovedContext || !hasFilteredMagicContext) {
-        throw new Error(`无法安全应用 pi-cometix-footer 适配，上游实现可能已变更: ${footerPath}`);
-      }
-      if (next === source) {
-        return { changed: false, action: 'unchanged', path: footerPath };
-      }
-      await writeTextFile(footerPath, next);
-      return { changed: true, action: 'updated', path: footerPath };
+      await writeTextFile(configPath, await readTemplate(packageRoot, 'pi-footer.json'));
+      return { changed: true, action: 'created', path: configPath };
     },
     async check({ agentDir }) {
-      const footerPath = path.join(piPackageDir('pi-cometix-footer', agentDir), 'index.ts');
-      const source = await readTextIfExists(footerPath);
+      const configPath = path.join(piExtensionsDir(agentDir), 'pi-footer.json');
       return {
-        name: 'Pi cometix footer adaptive layout',
-        ok: Boolean(source) && source.includes(COMETIX_FOOTER_REPAIR_MARKER) && source.includes('wrapTextWithAnsi') && !source.includes('const ctxSeg = paint(') && source.includes('.filter(([key]) => key !== "magic-context")'),
-        hint: `pi-cometix-footer needs adaptive wrapping and duplicate context status filtering. Run pitaya update -p pi to repair ${footerPath}`
+        name: 'Pi footer config',
+        ok: await pathExists(configPath),
+        hint: `Missing ${configPath}. Run pitaya update -p pi.`
       };
     }
   },

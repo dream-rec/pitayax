@@ -78,6 +78,7 @@ npx pitayax update -p <platform>
 --skip-mcps                                   # 不配置任何 mcp
 --pi-plugins <id,id,...>                      # 指定 Pi 插件 id，默认全部（仅 -p pi）
 --skip-pi-plugins                             # 不安装任何 Pi 插件
+--clean                                       # 先 pi remove 再重装选中的 Pi 插件（仅 -p pi）
 --install-deps --developer <name>            # 自动初始化 Trellis
 ```
 
@@ -107,12 +108,15 @@ MCP ids：
 |----|----|------|
 | `tool-display` | `pi-tool-display@0.5.0` | 辅助显示层：`find`/`ls`、MCP 输出、用户消息框和 thinking 标签 |
 | `nano-context` | `pi-nano-context@0.1.1` | 上下文用量显示 |
-| `cometix-footer` | `pi-cometix-footer@1.1.1` | 底部状态栏 |
+| `footer` | `pi-footer@0.5.1` | 可配置的底部状态栏（`/footer` 面板） |
 | `mcp-adapter` | `pi-mcp-adapter@2.15.0` | MCP 适配器，原生读取 `.mcp.json` |
 | `provider-manager` | `@arcaneorion/pi-provider-manager@0.3.9` | `/providers` 面板 + roundrobin 故障转移 |
 | `btw` | `pi-btw@0.4.1` | 生成过程中追加提示 |
 | `magic-context` | `@cortexkit/pi-magic-context@0.40.1` | 本地 embedding 上下文检索 |
 | `aft` | `@cortexkit/aft-pi@0.53.0` | 接管 `read`/`write`/`edit`/`grep`/`bash`，并提供索引搜索、结构导航、诊断和安全恢复 |
+| `plugin-manager` | `pi-plugin-manager@0.2.3` | `/plugins` 面板：搜索、安装、禁用扩展与 MCP server |
+| `web-access` | `pi-web-access@0.28.0` | `web_search` / `web_fetch` 工具，多搜索后端与网页正文提取 |
+| `advisor-flow` | `pi-advisor-flow@0.6.0` | 顾问模型 + 执行模型分工，配置在 `~/.pi/agent/advisor.json` |
 
 ## Pi 安装
 
@@ -144,6 +148,16 @@ npx pitayax doctor -p pi
 
 重复执行是幂等的：没有变化时 install report 全是 `unchanged`，不会产生多余的 npm 写入。
 
+### 清理式更新
+
+```bash
+npx pitayax update -p pi --clean
+```
+
+`--clean` 会先对 `settings.json` 里已登记的清单内插件逐个执行 `pi remove npm:<name>`（同时删掉 settings 条目和 `~/.pi/agent/npm` 里的依赖），再走一遍完整的安装、钉版本和扩展适配。适用于依赖树漂移、`pi update` 冲掉补丁、或 `doctor` 报版本不一致而普通 `update` 修不好的情况。
+
+不会被清掉的东西：用户自行安装、不在清单内的扩展；`~/.pi/agent/extensions/` 下的配置文件（`pi-footer.json`、`pi-tool-display/config.json`、`providers.ts`）；Pi CLI 本身；`settings.json` 里的 provider、模型、代理等账号配置。
+
 ### 版本钉死
 
 `pi install npm:foo@1.2.3` 只会把 `^1.2.3` 写进 `~/.pi/agent/npm/package.json`，npm 实际解析的是该范围内的**最新**版本（实测 `pi-mcp-adapter@2.15.0` 会装成 `2.31.0`）。`settings.json` 里的钉版本只能阻止 `pi update`，管不住 npm 解析。
@@ -156,9 +170,21 @@ npx pitayax doctor -p pi
 
 **`pi-tool-display` 与 AFT 的工具归属** —— AFT 默认接管 `read`、`write`、`edit`、`grep` 和 `bash` 的执行及渲染；`pi-tool-display` 不重复覆盖这些工具，只保留 `find`、`ls`、MCP 输出、用户消息框和 thinking 标签。看到 `edit` 使用 AFT 样式是预期行为，并不表示 `pi-tool-display` 失效。安装器只在配置文件不存在时写入这套默认归属，不覆盖用户已有配置。
 
-**`pi-nano-context` 的 footer 冲突** —— 它会注册自己的 footer，与 `pi-cometix-footer` 抢占底部状态栏。安装后剥掉它的 footer 注册。这是直接改 `node_modules` 内的文件，任何一次 `pi install`/`pi update` 都会还原，重跑 `pitaya update -p pi` 即可。
+**`pi-nano-context` 的 footer 冲突** —— 它会注册自己的 footer，与 `pi-footer` 抢占底部状态栏。安装后剥掉它的 footer 注册。这是直接改 `node_modules` 内的文件，任何一次 `pi install`/`pi update` 都会还原，重跑 `pitaya update -p pi` 即可。
 
-**`pi-cometix-footer` 的窄窗口布局** —— 上游会把整个 footer 截成一行，终端变窄时后半段溢出并被遮挡。安装器改为按当前宽度保留 ANSI 样式地自动换行，同时隐藏重复的 `⚡ ...% .../...` 上下文段和 Magic Context 的 `mc: ... · idle` 状态。补丁带版本标记，`doctor` 不会把上游仅添加了同名 import 的情况误判为已修复。
+**`pi-footer` 的状态栏布局** —— 上游默认预设把模型、目录、git 挤在一行，窄窗口下会被截断。安装器只在 `~/.pi/agent/extensions/pi-footer.json` 不存在时写入一份三行布局，已存在（用户在 `/footer` 里调过）就不覆盖：
+
+```
+ zuoyebang/deepseek-v4.1-flash | 󰧑 xhigh
+  myrepo |  feature/footer-lines |  a1b2c3d |  (+12,-4)
+ 󰚥 MCP: 2 servers enabled
+```
+
+- 第一行只放 `model-provider` 与 `thinking-level`。模型段用 widget 自带的 `raw: true` 去掉机器人图标；推理段的图标用 `icon` 选项换成 nerd-fonts 的 `md-brain`（U+F09D1），替代上游默认的 `md-eye`；
+- 第二行放 `cwd-basename`、`git-branch`、`git-sha`、`git-diff`，`git-status` 与 `git-ahead-behind` 同在这一行但默认关闭，在 `/footer` 里打开即可；
+- 第三行不用配：`pi-footer` 会把扩展状态行追加在配置行之后。`extensionStatusRow.hiddenKeys` 隐藏了 `magic-context`，所以这一行只剩 MCP。
+
+这些全部走 `pi-footer` 自己的配置文件与 widget 选项，不改包源码，`pi update` 不会丢。
 
 **`@arcaneorion/pi-provider-manager` 的多实例问题** —— 该发布包的 `package.json` 没有 `pi` 字段，Pi 于是按约定扫描包内 `extensions/` 目录，把 6 个子模块当成 6 个独立扩展分别加载。各子模块拿到的 `ExtensionAPI` 实例互不相同，`pi.events` 无法互通，面板保存配置后触发不了轮询引擎热重载。修复分两步：
 

@@ -2,7 +2,14 @@ import { mkdir } from 'node:fs/promises';
 import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
 import { installMcpServers } from '../../lib/mcp.js';
 import { readJsonObject, writeJsonObject } from '../../lib/json.js';
-import { defaultPiPluginIds, isPluginInstalled, packageVersionFromSource, resolvePiPlugins } from './catalog.js';
+import {
+  defaultPiPluginIds,
+  isPluginInstalled,
+  packageNameFromSource,
+  packageVersionFromSource,
+  resolvePiPlugins,
+  settingsPackageSource
+} from './catalog.js';
 import { applyRepairs, pinExactVersions } from './repairs.js';
 import { piAgentDir, piNpmDir, piSettingsPath } from './paths.js';
 import { runCommand } from '../../lib/runtime.js';
@@ -42,11 +49,39 @@ export async function installPiProject(packageRoot, targetRoot, options) {
   return results;
 }
 
+// --clean：先 pi remove 再重装，用来清掉漂移的依赖树和被 pi update 冲掉的补丁。
+// 只卸载 settings.json 里已登记的清单内插件；用户自装的扩展、extensions/ 下的
+// 配置文件（pi-footer.json、pi-tool-display/config.json）和 Pi CLI 本身都不动。
+export async function uninstallPiPlugins(plugins, agentDir = piAgentDir()) {
+  const settings = await readJsonObject(piSettingsPath(agentDir), {});
+  const registered = new Set(
+    (Array.isArray(settings.packages) ? settings.packages : [])
+      .map((entry) => packageNameFromSource(settingsPackageSource(entry)))
+      .filter(Boolean)
+  );
+
+  const results = [];
+  for (const plugin of plugins) {
+    if (!registered.has(plugin.name)) {
+      results.push({ changed: false, action: 'skipped', path: plugin.spec, reason: '未登记在 settings.json，无需卸载' });
+      continue;
+    }
+    // pi 按包名匹配 source，不带版本即可；它会同时删 settings 条目和 npm 依赖。
+    runCommand('pi', ['remove', `npm:${plugin.name}`]);
+    results.push({ changed: true, action: 'removed', path: plugin.spec });
+  }
+  return results;
+}
+
 export async function installPi(packageRoot, options = {}) {
   const agentDir = piAgentDir();
   const plugins = options.piPlugins ?? resolvePiPlugins(defaultPiPluginIds());
   const ctx = { agentDir, packageRoot };
   const results = [];
+
+  if (options.clean) {
+    results.push(...await uninstallPiPlugins(plugins, agentDir));
+  }
 
   if (piCliVersionMatches()) {
     results.push({ changed: false, action: 'unchanged', path: PI_CLI });

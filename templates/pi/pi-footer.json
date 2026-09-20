@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "enabled": true,
+  "preset": "git-heavy",
+  "lines": [
+    [
+      {
+        "id": "model-provider-mu553nex-sz7s7z",
+        "type": "model-provider",
+        "enabled": true,
+        "options": {
+          "raw": true,
+          "icon": "",
+          "fg": "gradient",
+          "bg": "default",
+          "bold": false
+        }
+      },
+      {
+        "id": "thinking-level-mu9mi1c2-u0l9qv",
+        "type": "thinking-level",
+        "enabled": true,
+        "options": {
+          "raw": false,
+          "hideWhenEmpty": true,
+          "icon": "󰧑 ",
+          "text": "",
+          "fg": "cyan",
+          "bg": "default",
+          "bold": false
+        }
+      }
+    ],
+    [
+      {
+        "id": "cwd-basename-mu553nex-63i8na",
+        "type": "cwd-basename",
+        "enabled": true,
+        "options": {
+          "raw": false,
+          "hideWhenEmpty": false,
+          "icon": "",
+          "text": "",
+          "fg": "blue",
+          "bg": "default",
+          "bold": false
+        }
+      },
+      {
+        "id": "git-branch-mu553nex-3ujqpv",
+        "type": "git-branch",
+        "enabled": true,
+        "options": {
+          "raw": false,
+          "hideWhenEmpty": false,
+          "icon": "",
+          "text": "",
+          "fg": "magenta",
+          "bg": "default",
+          "bold": false,
+          "gitBranchDisplayStyle": "default",
+          "surroundLeft": "",
+          "surroundRight": ""
+        }
+      },
+      {
+        "id": "git-sha-mu553nex-6gr9g8",
+        "type": "git-sha",
+        "enabled": true,
+        "options": {
+          "raw": false,
+          "hideWhenEmpty": false,
+          "icon": "",
+          "text": "",
+          "fg": "brightBlack",
+          "bg": "default",
+          "bold": false
+        }
+      },
+      {
+        "id": "git-status-mu553nex-q9gtxc",
+        "type": "git-status",
+        "enabled": false,
+        "options": {
+          "raw": false,
+          "hideWhenEmpty": false,
+          "icon": "",
+          "text": "",
+          "fg": "yellow",
+          "bg": "default",
+          "bold": false
+        }
+      },
+      {
+        "id": "git-diff-mu553nex-spgbwd",
+        "type": "git-diff",
+        "enabled": true,
+        "options": {
+          "raw": false,
+          "hideWhenEmpty": false,
+          "icon": "",
+          "text": "",
+          "fg": "yellow",
+          "bg": "default",
+          "bold": false,
+          "gitDiffMode": "compact"
+        }
+      },
+      {
+        "id": "git-ahead-behind-mu553nex-8dj8f6",
+        "type": "git-ahead-behind",
+        "enabled": false,
+        "options": {
+          "raw": false,
+          "hideWhenEmpty": false,
+          "icon": "",
+          "text": "",
+          "fg": "cyan",
+          "bg": "default",
+          "bold": false
+        }
+      }
+    ]
+  ],
+  "separator": "pipe",
+  "separatorFg": "default",
+  "separatorBg": "default",
+  "iconMode": "nerd",
+  "minimalist": false,
+  "terminal": {
+    "widthMode": "full",
+    "colorLevel": "ansi256"
+  },
+  "extensionStatusRow": {
+    "hiddenKeys": [
+      "magic-context"
+    ],
+    "knownKeys": [
+      "magic-context",
+      "mcp"
+    ]
+  }
+}

@@ -78,6 +78,9 @@ export async function run(argv) {
   if (platform === "pi" && command !== "init" && command !== "update" && command !== "doctor") {
     throw new Error("Pi supports: pitaya init|update|doctor -p pi.");
   }
+  if (options.clean && (platform !== "pi" || command === "doctor")) {
+    throw new Error("--clean only applies to: pitaya update|init -p pi.");
+  }
 
   const rootDir = process.cwd();
   const mode = options.mode ?? "strict";
@@ -242,6 +245,11 @@ function parseArgs(argv) {
 
     if (arg === "--skip-pi-plugins") {
       options.piPluginIds = [];
+      continue;
+    }
+
+    if (arg === "--clean") {
+      options.clean = true;
       continue;
     }
 
@@ -425,6 +433,7 @@ function helpText() {
     "  pitaya init -p <cursor|claude|opencode|codex|pi> [options]",
     "  pitaya doctor -p <cursor|claude|opencode|codex|pi>",
     "  pitaya update -p <cursor|claude|opencode|codex|pi>",
+    "  pitaya update -p pi --clean    # 先 pi remove 再重装全部 Pi 插件",
     "",
     "Options:",
     "  -p, --platform <platform>       cursor|claude|opencode|codex|pi",
@@ -435,6 +444,7 @@ function helpText() {
     "  --skip-mcps                     不配置任何 mcp",
     "  --pi-plugins <id,id,...>        指定要安装的 Pi 插件 id（默认全部，仅 -p pi）",
     "  --skip-pi-plugins               不安装任何 Pi 插件",
+    "  --clean                         卸载后重装选中的 Pi 插件，重置依赖树与补丁（仅 -p pi）",
     "  --yes                            非交互模式下确认安装",
     "  --install-deps --developer <n>  自动初始化 Trellis",
     "",
@@ -452,6 +462,7 @@ function helpText() {
     "  npx pitayax init -p cursor",
     "  npx pitayax init -p pi",
     "  npx pitayax init -p pi --pi-plugins nano-context,mcp-adapter",
+    "  npx pitayax update -p pi --clean",
     "  npx pitayax init -p claude --skills trellis-pitaya-patch --mcps fast-context",
     "  npx pitayax doctor -p codex",
   ].join("\n");

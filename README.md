@@ -33,7 +33,7 @@ npx pitayax
 
 1. 选择平台（claude code / codex / opencode / cursor / pi）
 2. 选择 Pi 插件（仅选了 Pi 时出现，默认全选）
-3. 选择要安装的 skills（默认全选）
+3. 选择要安装的 skills（默认全选；上一步跳过了 Trellis 时不再询问，两个 skill 都是 Trellis patch，没有 Trellis 无从挂载）
 4. 选择要配置的 MCP servers（默认全选）
 5. enter 确认安装
 
@@ -116,7 +116,7 @@ MCP ids：
 | `aft` | `@cortexkit/aft-pi@0.53.0` | 接管 `read`/`write`/`edit`/`grep`/`bash`，并提供索引搜索、结构导航、诊断和安全恢复 |
 | `plugin-manager` | `pi-plugin-manager@0.2.3` | `/plugins` 面板：搜索、安装、禁用扩展与 MCP server |
 | `web-access` | `pi-web-access@0.28.0` | `web_search` / `web_fetch` 工具，多搜索后端与网页正文提取 |
-| `advisor-flow` | `pi-advisor-flow@0.6.0` | 顾问模型 + 执行模型分工，配置在 `~/.pi/agent/advisor.json` |
+| `advisor-flow` | `pi-advisor-flow@0.6.0` | 顾问模型 + 执行模型分工，默认 Simple mode，配置在 `~/.pi/agent/advisor.json` |
 
 ## Pi 安装
 
@@ -198,6 +198,8 @@ npx pitayax update -p pi --clean
 - 写入 `~/.pi/agent/extensions/providers.ts`，单点转发到包的 `index.ts`。
 
 补丁都在包外，`npm install` / `pi update` 覆盖不掉。
+
+**`pi-advisor-flow` 的 Simple mode** —— 上游默认关闭 Simple mode：启用顾问流后，plan / failure / completion 三道自动 gate 和 loop gate 全开，执行模型每到关键节点都要先过顾问，还受每会话调用预算限制。安装器在 `~/.pi/agent/advisor.json` 缺少 `simpleMode` 时写入 `true`，让顾问只在执行模型主动调用 `ask_advisor` 或 `/advisor-manual` 时介入；用户在 `/advisor-settings` 里明确设过的值不覆盖，`advisor` / `executor` 等模型字段一律不动。补丁在包外，`pi update` 不会丢。
 
 **Intel Mac 的 onnxruntime** —— 仅在 `darwin/x64` 且选装了 `magic-context` 时生效。`@huggingface/transformers@4.2.0` 依赖 `onnxruntime-node@1.24.3`，而 1.22 之后的发布包只带 `darwin/arm64` 二进制，没有 `darwin/x64`。安装器会在 `~/.pi/agent/npm/package.json` 写入 overrides 把它压回 `1.21.0`。Apple Silicon 和 Linux 上不写这条。Windows 不需要这条兼容性降级。对于 Windows 的 hook，安装器不依赖 Unix 可执行权限，并使用 `python`/`python3` 和 npm 的 `.cmd` shim 自动解析。
 

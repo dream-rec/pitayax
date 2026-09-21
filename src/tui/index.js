@@ -96,7 +96,8 @@ function readKeystroke() {
     }
     process.stdin.setRawMode(true);
     process.stdin.resume();
-    process.stdin.once("data", onRaw);
+    // 只挂一次：同一个 handler 同时用 once 和 on 挂两遍，ESC 与 [B 分两次到达时
+    // 第二个 handler 会把 buffer 拼成 ESC ESC [ B，方向键被当成未知按键丢掉。
     process.stdin.on("data", onRaw);
   });
 }
@@ -306,7 +307,7 @@ async function textInput({ title, hint, placeholder }) {
 
 const STEP_NUMERALS = ["一", "二", "三", "四", "五", "六"];
 
-// 步骤数随平台而变（Pi 多一步选插件），且 Trellis 已就绪时会整步跳过，
+// 步骤数随平台而变（Pi 多一步选插件），Trellis 已就绪或被跳过时相关步骤会整步略过，
 // 所以标题按实际渲染顺序生成，不写死。
 function createStepper() {
   let index = 0;
@@ -316,7 +317,7 @@ function createStepper() {
   };
 }
 
-function renderSummary(platform, skills, mcps, mode, trellisAction, piPlugins) {
+function renderSummary({ platform, skills, mcps, mode, trellisAction, piPlugins, skillsSkipped }) {
   const lines = [];
   lines.push(colorize("即将安装:", COLORS.magenta));
   lines.push(`  平台: ${colorize(PLATFORM_LABELS[platform], COLORS.bold)}`);
@@ -337,13 +338,17 @@ function renderSummary(platform, skills, mcps, mode, trellisAction, piPlugins) {
     }
   }
 
-  lines.push(`  Skills (${skills.length}):`);
-  if (skills.length === 0) {
-    lines.push(colorize("    (无)", COLORS.dim));
+  if (skillsSkipped) {
+    lines.push(`  Skills: ${colorize("跳过（pitaya skills 依赖 Trellis）", COLORS.dim)}`);
   } else {
-    skills.forEach((s) =>
-      lines.push(`    ${colorize("✓", COLORS.green)} ${s.name}`),
-    );
+    lines.push(`  Skills (${skills.length}):`);
+    if (skills.length === 0) {
+      lines.push(colorize("    (无)", COLORS.dim));
+    } else {
+      skills.forEach((s) =>
+        lines.push(`    ${colorize("✓", COLORS.green)} ${s.name}`),
+      );
+    }
   }
   lines.push(`  MCPs (${mcps.length}):`);
   if (mcps.length === 0) {
@@ -356,7 +361,7 @@ function renderSummary(platform, skills, mcps, mode, trellisAction, piPlugins) {
   return lines.join("\n");
 }
 
-  // 交互式安装向导：平台 -> Pi 插件（可选）-> Trellis 基础依赖 -> skill -> mcp -> 确认安装。
+// 交互式安装向导：平台 -> Pi 插件（可选）-> Trellis 基础依赖 -> skill（跳过 Trellis 时略过）-> mcp -> 确认安装。
 export async function runInteractive() {
   const step = createStepper();
 
@@ -446,13 +451,17 @@ export async function runInteractive() {
     }
   }
 
-  // 选择 skills。
-  const skillIds = await multiSelect({
-    title: step("选择要安装的 Skills"),
-    hint: "这些是 pitaya 的 Trellis patch skills，默认全选。",
-    items: SKILL_CATALOG,
-    defaults: defaultSkillIds(),
-  });
+  // pitaya 的 skills（grill-me 风格 PRD、MCP 优先级策略）都是挂在 Trellis workflow 上的 patch，
+  // 跳过 Trellis 时没有可挂载的对象，整步略过不再询问。
+  const skillsSkipped = !trellisState.exists && !installDeps;
+  const skillIds = skillsSkipped
+    ? []
+    : await multiSelect({
+        title: step("选择要安装的 Skills"),
+        hint: "这些是 pitaya 的 Trellis patch skills，默认全选。",
+        items: SKILL_CATALOG,
+        defaults: defaultSkillIds(),
+      });
 
   // 选择 MCPs。
   const mcpIds = await multiSelect({
@@ -472,7 +481,7 @@ export async function runInteractive() {
   // 确认安装。
   process.stdout.write("\x1B[2J\x1B[H");
   process.stdout.write(
-    renderSummary(platform, skills, mcps, mode, trellisAction, piPlugins),
+    renderSummary({ platform, skills, mcps, mode, trellisAction, piPlugins, skillsSkipped }),
   );
   process.stdout.write("\n\n");
 

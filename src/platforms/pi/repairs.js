@@ -4,7 +4,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { backupIfExists, pathExists, readTextIfExists, writeIfChanged, writeTextFile } from '../../lib/files.js';
 import { readJsonObject, writeJsonObject } from '../../lib/json.js';
 import { packageNameFromSource, packageVersionFromSource, settingsPackageSource } from './catalog.js';
-import { piExtensionsDir, piNpmDir, piPackageDir, piSettingsPath } from './paths.js';
+import { piAdvisorConfigPath, piExtensionsDir, piNpmDir, piPackageDir, piSettingsPath } from './paths.js';
 
 const PROVIDER_MANAGER = '@arcaneorion/pi-provider-manager';
 const ONNX_PIN = '1.21.0';
@@ -271,6 +271,35 @@ export const REPAIRS = {
         name: 'Pi MCP status icon',
         ok: Boolean(source) && source.includes(MCP_STATUS_NERD),
         hint: `pi-mcp-adapter status line still uses the emoji plug. Run pitaya update -p pi to repair ${utilsPath}`
+      };
+    }
+  },
+
+  // 上游默认关闭 Simple mode：启用顾问流后 plan/failure/completion 三道自动 gate 和 loop gate
+  // 全开，执行模型每到关键节点都要先过顾问，还受每会话调用预算限制。这里改成默认 Simple mode，
+  // 顾问只在执行模型主动调用 ask_advisor 或 /advisor-manual 时介入。
+  // 只在 advisor.json 缺少 simpleMode 时写入，用户在 /advisor-settings 里明确设过的值不覆盖，
+  // advisor/executor 等模型字段一律不动。补丁写在包外，pi update 覆盖不掉。
+  'advisor-simple-mode': {
+    label: 'pi-advisor-flow 默认 Simple mode',
+    phase: 'files',
+    async apply({ agentDir }) {
+      const configPath = piAdvisorConfigPath(agentDir);
+      const config = await readJsonObject(configPath, {});
+      if (typeof config.simpleMode === 'boolean') {
+        return { changed: false, action: 'unchanged', path: configPath };
+      }
+      const exists = await pathExists(configPath);
+      await writeJsonObject(configPath, { ...config, simpleMode: true });
+      return { changed: true, action: exists ? 'updated' : 'created', path: configPath };
+    },
+    async check({ agentDir }) {
+      const configPath = piAdvisorConfigPath(agentDir);
+      const config = await readJsonObject(configPath, {});
+      return {
+        name: 'Pi advisor simple mode',
+        ok: typeof config.simpleMode === 'boolean',
+        hint: `Missing simpleMode in ${configPath}; pi-advisor-flow falls back to its upstream default (Simple mode off, automatic gates on). Run pitaya update -p pi.`
       };
     }
   },

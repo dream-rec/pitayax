@@ -97,8 +97,9 @@ export const PI_PLUGIN_CATALOG = [
     name: 'pi-advisor-flow',
     spec: 'npm:pi-advisor-flow@0.6.0',
     label: 'pi-advisor-flow (顾问模型)',
-    description: '用更强的模型做顾问、较快的模型做执行；配置在 ~/.pi/agent/advisor.json。',
-    default: true
+    description: '用更强的模型做顾问、较快的模型做执行；默认 Simple mode 按需咨询，配置在 ~/.pi/agent/advisor.json。',
+    default: true,
+    repairs: ['advisor-simple-mode']
   }
 ];
 

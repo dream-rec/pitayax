@@ -4,10 +4,13 @@ import { pathExists, readTextIfExists } from '../lib/files.js';
 import { commandExists, pythonCommand, runCommand } from '../lib/runtime.js';
 import { readMcpServers, mcpConfigExists } from '../lib/mcp.js';
 import { MCP_CATALOG } from '../lib/catalog.js';
-import { readInstalledPluginIds, resolvePiPlugins } from '../platforms/pi/catalog.js';
+import { fileURLToPath } from 'node:url';
+import { PI_RETIRED_PACKAGES, readInstalledPluginIds, readRegisteredPackageNames, resolvePiPlugins } from '../platforms/pi/catalog.js';
 import { checkPinnedVersions, checkRepairs } from '../platforms/pi/repairs.js';
 import { piAgentDir, piSettingsPath } from '../platforms/pi/paths.js';
 import { PI_CLI } from '../platforms/pi/index.js';
+
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 export async function checkDependencies(rootDir, platform) {
   const checks = [];
@@ -28,7 +31,15 @@ export async function checkDependencies(rootDir, platform) {
       });
     }
     checks.push(...await checkPinnedVersions(plugins, agentDir));
-    checks.push(...await checkRepairs(plugins, { agentDir }));
+    checks.push(...await checkRepairs(plugins, { agentDir, packageRoot }));
+
+    const registered = await readRegisteredPackageNames(agentDir);
+    const retired = PI_RETIRED_PACKAGES.filter((name) => registered.has(name));
+    checks.push({
+      name: 'Pi retired packages',
+      ok: retired.length === 0,
+      hint: `${retired.join(', ')} still registered in ${piSettingsPath(agentDir)}; it competes with pi-footer. Run pitaya update -p pi to remove.`
+    });
 
     checks.push(await fileCheck(path.join(rootDir, '.trellis'), 'Trellis project directory'));
     checks.push(await fileCheck(path.join(rootDir, '.pi', 'extensions', 'trellis', 'index.ts'), 'Trellis Pi extension'));

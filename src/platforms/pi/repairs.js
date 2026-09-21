@@ -1,7 +1,7 @@
 import path from 'node:path';
 import process from 'node:process';
-import { readFile } from 'node:fs/promises';
-import { pathExists, readTextIfExists, writeIfChanged, writeTextFile } from '../../lib/files.js';
+import { readdir, readFile } from 'node:fs/promises';
+import { backupIfExists, pathExists, readTextIfExists, writeIfChanged, writeTextFile } from '../../lib/files.js';
 import { readJsonObject, writeJsonObject } from '../../lib/json.js';
 import { packageNameFromSource, packageVersionFromSource, settingsPackageSource } from './catalog.js';
 import { piExtensionsDir, piNpmDir, piPackageDir, piSettingsPath } from './paths.js';
@@ -11,6 +11,8 @@ const ONNX_PIN = '1.21.0';
 
 const NANO_CONTEXT_FOOTER = /ctx\.ui\.setFooter\(\(_tui,\s*theme,\s*footerData\)\s*=>\s*\(\{[\s\S]*?renderFooter\(pi,\s*ctx,\s*footerData,\s*width,\s*theme\),[\s\S]*?\}\)\);/;
 const NANO_CONTEXT_FOOTER_CLEANUP = /ctx\.ui\.setFooter\(undefined\);/;
+const MCP_STATUS_EMOJI = '"🔌 MCP: "';
+const MCP_STATUS_NERD = '"󰚥 MCP: "';
 
 // onnxruntime-node 1.22+ 的发布包只带 darwin/arm64 二进制，没有 darwin/x64。
 // Intel Mac 上不把它压回 1.21.0，magic-context 依赖的 transformers 就加载不起来。
@@ -20,6 +22,88 @@ function needsOnnxPin() {
 
 async function readTemplate(packageRoot, fileName) {
   return readFile(path.join(packageRoot, 'templates', 'pi', fileName), 'utf8');
+}
+
+// 用户自己在 /footer、tool-display 里调过的配置文件不覆盖；--clean 视为重置，
+// 先备份再写回模板。
+async function seedConfigFile({ agentDir, packageRoot, clean }, relativePath, templateName) {
+  const configPath = path.join(piExtensionsDir(agentDir), ...relativePath);
+  const exists = await pathExists(configPath);
+  if (exists && !clean) {
+    return { changed: false, action: 'unchanged', path: configPath };
+  }
+  const template = await readTemplate(packageRoot, templateName);
+  if (exists && (await readTextIfExists(configPath)) === template) {
+    return { changed: false, action: 'unchanged', path: configPath };
+  }
+  const backup = exists ? await backupIfExists(configPath) : undefined;
+  await writeTextFile(configPath, template);
+  return {
+    changed: true,
+    action: exists ? 'reset' : 'created',
+    path: configPath,
+    reason: backup ? `原配置已备份到 ${path.basename(backup)}` : undefined
+  };
+}
+
+// 源码覆盖层：templates/pi/overlays/<包名>/<版本>/ 下的文件原样盖到包目录里。
+// 按版本分目录，上游一升版就自动失配，不会把旧补丁盖到新代码上。
+function overlayDir(packageRoot, packageName, version) {
+  return path.join(packageRoot, 'templates', 'pi', 'overlays', ...packageName.split('/'), version);
+}
+
+async function listFilesRecursive(dir, prefix = '') {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      files.push(...await listFilesRecursive(path.join(dir, entry.name), relative));
+    } else {
+      files.push(relative);
+    }
+  }
+  return files.sort();
+}
+
+async function resolveOverlay(packageRoot, packageName, agentDir) {
+  const packageDir = piPackageDir(packageName, agentDir);
+  const manifest = await readJsonObject(path.join(packageDir, 'package.json'), {});
+  if (!manifest.version) {
+    return { packageDir, reason: `${packageName} 未安装` };
+  }
+  const dir = overlayDir(packageRoot, packageName, manifest.version);
+  if (!(await pathExists(dir))) {
+    return { packageDir, version: manifest.version, reason: `没有适用于 ${packageName}@${manifest.version} 的覆盖层` };
+  }
+  return { packageDir, version: manifest.version, dir, files: await listFilesRecursive(dir) };
+}
+
+async function applyOverlay(packageRoot, packageName, agentDir) {
+  const overlay = await resolveOverlay(packageRoot, packageName, agentDir);
+  if (!overlay.dir) {
+    return [{ changed: false, action: 'skipped', path: overlay.packageDir, reason: overlay.reason }];
+  }
+  const results = [];
+  for (const file of overlay.files) {
+    const contents = await readFile(path.join(overlay.dir, file), 'utf8');
+    results.push(await writeIfChanged(path.join(overlay.packageDir, file), contents));
+  }
+  return results;
+}
+
+async function checkOverlay(packageRoot, packageName, agentDir) {
+  const overlay = await resolveOverlay(packageRoot, packageName, agentDir);
+  if (!overlay.dir) {
+    return { ok: false, detail: overlay.reason };
+  }
+  for (const file of overlay.files) {
+    const expected = await readFile(path.join(overlay.dir, file), 'utf8');
+    if ((await readTextIfExists(path.join(overlay.packageDir, file))) !== expected) {
+      return { ok: false, detail: `${file} 与覆盖层不一致` };
+    }
+  }
+  return { ok: true };
 }
 
 // 每个条目把「怎么修」和「怎么验」放在一起，安装与 doctor 共用同一份事实。
@@ -114,14 +198,8 @@ export const REPAIRS = {
   'tool-display-config': {
     label: 'pi-tool-display 显示配置',
     phase: 'files',
-    async apply({ agentDir, packageRoot }) {
-      const configPath = path.join(piExtensionsDir(agentDir), 'pi-tool-display', 'config.json');
-      // 已存在说明用户调过，不覆盖。
-      if (await pathExists(configPath)) {
-        return { changed: false, action: 'unchanged', path: configPath };
-      }
-      await writeTextFile(configPath, await readTemplate(packageRoot, 'tool-display-config.json'));
-      return { changed: true, action: 'created', path: configPath };
+    async apply(ctx) {
+      return seedConfigFile(ctx, ['pi-tool-display', 'config.json'], 'tool-display-config.json');
     },
     async check({ agentDir }) {
       const configPath = path.join(piExtensionsDir(agentDir), 'pi-tool-display', 'config.json');
@@ -133,17 +211,29 @@ export const REPAIRS = {
     }
   },
 
+  // pi-footer 上游没有 fg: "gradient"；模板里的模型段用了它，不打这层补丁就退成白字。
+  // 补丁直接改 node_modules 内的源码，pi update / 重装会还原，doctor 会报出来。
+  'footer-gradient': {
+    label: 'pi-footer 渐变色 widget',
+    phase: 'files',
+    async apply({ agentDir, packageRoot }) {
+      return applyOverlay(packageRoot, 'pi-footer', agentDir);
+    },
+    async check({ agentDir, packageRoot }) {
+      const result = await checkOverlay(packageRoot, 'pi-footer', agentDir);
+      return {
+        name: 'Pi footer gradient overlay',
+        ok: result.ok,
+        hint: `pi-footer is missing the gradient color patch${result.detail ? ` (${result.detail})` : ''}. Run pitaya update -p pi.`
+      };
+    }
+  },
+
   'footer-config': {
     label: 'pi-footer 状态栏布局',
     phase: 'files',
-    async apply({ agentDir, packageRoot }) {
-      const configPath = path.join(piExtensionsDir(agentDir), 'pi-footer.json');
-      // 已存在说明用户在 /footer 里调过，不覆盖。
-      if (await pathExists(configPath)) {
-        return { changed: false, action: 'unchanged', path: configPath };
-      }
-      await writeTextFile(configPath, await readTemplate(packageRoot, 'pi-footer.json'));
-      return { changed: true, action: 'created', path: configPath };
+    async apply(ctx) {
+      return seedConfigFile(ctx, ['pi-footer.json'], 'pi-footer.json');
     },
     async check({ agentDir }) {
       const configPath = path.join(piExtensionsDir(agentDir), 'pi-footer.json');
@@ -151,6 +241,36 @@ export const REPAIRS = {
         name: 'Pi footer config',
         ok: await pathExists(configPath),
         hint: `Missing ${configPath}. Run pitaya update -p pi.`
+      };
+    }
+  },
+
+  // 上游状态行前缀是 🔌 emoji，和 nerd 图标的其余 footer 不搭；换成 md-power-plug。
+  'mcp-status-icon': {
+    label: 'pi-mcp-adapter 状态行图标',
+    phase: 'files',
+    async apply({ agentDir }) {
+      const utilsPath = path.join(piPackageDir('pi-mcp-adapter', agentDir), 'utils.ts');
+      const source = await readTextIfExists(utilsPath);
+      if (!source) {
+        return { changed: false, action: 'skipped', path: utilsPath, reason: 'pi-mcp-adapter 未安装' };
+      }
+      if (source.includes(MCP_STATUS_NERD)) {
+        return { changed: false, action: 'unchanged', path: utilsPath };
+      }
+      if (!source.includes(MCP_STATUS_EMOJI)) {
+        throw new Error(`无法安全替换 pi-mcp-adapter 状态图标，上游实现可能已变更: ${utilsPath}`);
+      }
+      await writeTextFile(utilsPath, source.replace(MCP_STATUS_EMOJI, MCP_STATUS_NERD));
+      return { changed: true, action: 'updated', path: utilsPath };
+    },
+    async check({ agentDir }) {
+      const utilsPath = path.join(piPackageDir('pi-mcp-adapter', agentDir), 'utils.ts');
+      const source = await readTextIfExists(utilsPath);
+      return {
+        name: 'Pi MCP status icon',
+        ok: Boolean(source) && source.includes(MCP_STATUS_NERD),
+        hint: `pi-mcp-adapter status line still uses the emoji plug. Run pitaya update -p pi to repair ${utilsPath}`
       };
     }
   },

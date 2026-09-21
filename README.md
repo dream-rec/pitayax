@@ -154,9 +154,9 @@ npx pitayax doctor -p pi
 npx pitayax update -p pi --clean
 ```
 
-`--clean` 会先对 `settings.json` 里已登记的清单内插件逐个执行 `pi remove npm:<name>`（同时删掉 settings 条目和 `~/.pi/agent/npm` 里的依赖），再走一遍完整的安装、钉版本和扩展适配。适用于依赖树漂移、`pi update` 冲掉补丁、或 `doctor` 报版本不一致而普通 `update` 修不好的情况。
+`--clean` 会先对 `settings.json` 里已登记的清单内插件逐个执行 `pi remove npm:<name>`（同时删掉 settings 条目和 `~/.pi/agent/npm` 里的依赖），再走一遍完整的安装、钉版本和扩展适配。`pi-footer.json` 和 `pi-tool-display/config.json` 也会重置回模板，原文件备份成 `*.bak.<时间戳>`。适用于依赖树漂移、`pi update` 冲掉补丁、或 `doctor` 报版本不一致而普通 `update` 修不好的情况。
 
-不会被清掉的东西：用户自行安装、不在清单内的扩展；`~/.pi/agent/extensions/` 下的配置文件（`pi-footer.json`、`pi-tool-display/config.json`、`providers.ts`）；Pi CLI 本身；`settings.json` 里的 provider、模型、代理等账号配置。
+不会被清掉的东西：用户自行安装、不在清单内的扩展；`providers.ts`；Pi CLI 本身；`settings.json` 里的 provider、模型、代理等账号配置。
 
 ### 版本钉死
 
@@ -172,6 +172,12 @@ npx pitayax update -p pi --clean
 
 **`pi-nano-context` 的 footer 冲突** —— 它会注册自己的 footer，与 `pi-footer` 抢占底部状态栏。安装后剥掉它的 footer 注册。这是直接改 `node_modules` 内的文件，任何一次 `pi install`/`pi update` 都会还原，重跑 `pitaya update -p pi` 即可。
 
+**`pi-footer` 的渐变色 widget** —— 上游 0.5.1 没有 `fg: "gradient"`，模板里模型段用了它，不打补丁就退成白字。安装器把 `templates/pi/overlays/pi-footer/0.5.1/` 下的源文件原样盖进包目录（新增 `gradient.ts`，改 `colors.ts`、`index.ts`、`widgets/instance.ts` 等），让 widget 支持逐字符动画渐变。覆盖层按包版本分目录，上游升版后自动失配并由 `doctor` 报出，不会把旧补丁盖到新代码上。这是直接改 `node_modules`，`pi update` 会还原，重跑 `pitaya update -p pi` 即可。
+
+**`pi-mcp-adapter` 的状态行图标** —— 上游用 🔌 emoji 作前缀，和其余 nerd 图标不搭。安装器把 `utils.ts` 里的前缀替换成 nerd-fonts 的 `md-power-plug`（U+F06A5）。
+
+**已退役的 `pi-cometix-footer`** —— 旧版清单里的状态栏，和 `pi-footer` 抢占底部。只要它还登记在 `settings.json` 里，每次 `init`/`update` 都会 `pi remove` 掉，不必等 `--clean`；`doctor` 也会把残留报出来。
+
 **`pi-footer` 的状态栏布局** —— 上游默认预设把模型、目录、git 挤在一行，窄窗口下会被截断。安装器只在 `~/.pi/agent/extensions/pi-footer.json` 不存在时写入一份三行布局，已存在（用户在 `/footer` 里调过）就不覆盖：
 
 ```
@@ -184,7 +190,7 @@ npx pitayax update -p pi --clean
 - 第二行放 `cwd-basename`、`git-branch`、`git-sha`、`git-diff`，`git-status` 与 `git-ahead-behind` 同在这一行但默认关闭，在 `/footer` 里打开即可；
 - 第三行不用配：`pi-footer` 会把扩展状态行追加在配置行之后。`extensionStatusRow.hiddenKeys` 隐藏了 `magic-context`，所以这一行只剩 MCP。
 
-这些全部走 `pi-footer` 自己的配置文件与 widget 选项，不改包源码，`pi update` 不会丢。
+布局本身走 `pi-footer` 自己的配置文件与 widget 选项，`pi update` 不会丢；只有模型段的渐变色依赖上面的源码覆盖层。
 
 **`@arcaneorion/pi-provider-manager` 的多实例问题** —— 该发布包的 `package.json` 没有 `pi` 字段，Pi 于是按约定扫描包内 `extensions/` 目录，把 6 个子模块当成 6 个独立扩展分别加载。各子模块拿到的 `ExtensionAPI` 实例互不相同，`pi.events` 无法互通，面板保存配置后触发不了轮询引擎热重载。修复分两步：
 

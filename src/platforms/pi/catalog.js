@@ -31,7 +31,7 @@ export const PI_PLUGIN_CATALOG = [
     label: 'pi-footer (状态栏)',
     description: '可配置的底部状态栏：模型/推理等级、目录与 git 状态分两行，扩展状态另起一行。',
     default: true,
-    repairs: ['footer-config']
+    repairs: ['footer-gradient', 'footer-config']
   },
   {
     id: 'mcp-adapter',
@@ -39,7 +39,8 @@ export const PI_PLUGIN_CATALOG = [
     spec: 'npm:pi-mcp-adapter@2.15.0',
     label: 'pi-mcp-adapter (MCP 接入)',
     description: '让 Pi 读取项目根 .mcp.json，与 Claude Code 共用同一份 MCP 配置。',
-    default: true
+    default: true,
+    repairs: ['mcp-status-icon']
   },
   {
     id: 'provider-manager',
@@ -101,6 +102,10 @@ export const PI_PLUGIN_CATALOG = [
   }
 ];
 
+// 已从清单退役的扩展。只要还登记在 settings.json 里，init/update 都会 pi remove 掉，
+// 否则旧状态栏会和 pi-footer 抢占底部，doctor 也会把它报出来。
+export const PI_RETIRED_PACKAGES = ['pi-cometix-footer'];
+
 export function defaultPiPluginIds() {
   return PI_PLUGIN_CATALOG.filter((item) => item.default).map((item) => item.id);
 }
@@ -133,15 +138,20 @@ export function settingsPackageSource(entry) {
   return typeof entry === 'string' ? entry : entry?.source;
 }
 
-// 从 settings.json 的 packages 反推已装插件，doctor 据此决定检查哪些修复，
-// 用户没选装的插件不会被误报成缺失。
-export async function readInstalledPluginIds(agentDir = piAgentDir()) {
+// settings.json 里登记的全部包名，用于找出退役包和判断是否需要卸载。
+export async function readRegisteredPackageNames(agentDir = piAgentDir()) {
   const settings = await readJsonObject(piSettingsPath(agentDir), {});
-  const installed = new Set(
+  return new Set(
     (Array.isArray(settings.packages) ? settings.packages : [])
       .map((entry) => packageNameFromSource(settingsPackageSource(entry)))
       .filter(Boolean)
   );
+}
+
+// 从 settings.json 的 packages 反推已装插件，doctor 据此决定检查哪些修复，
+// 用户没选装的插件不会被误报成缺失。
+export async function readInstalledPluginIds(agentDir = piAgentDir()) {
+  const installed = await readRegisteredPackageNames(agentDir);
   return PI_PLUGIN_CATALOG.filter((plugin) => installed.has(plugin.name)).map((plugin) => plugin.id);
 }
 

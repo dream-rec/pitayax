@@ -3,12 +3,12 @@ import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } 
 import { installMcpServers } from '../../lib/mcp.js';
 import { readJsonObject, writeJsonObject } from '../../lib/json.js';
 import {
+  PI_RETIRED_PACKAGES,
   defaultPiPluginIds,
   isPluginInstalled,
-  packageNameFromSource,
   packageVersionFromSource,
-  resolvePiPlugins,
-  settingsPackageSource
+  readRegisteredPackageNames,
+  resolvePiPlugins
 } from './catalog.js';
 import { applyRepairs, pinExactVersions } from './repairs.js';
 import { piAgentDir, piNpmDir, piSettingsPath } from './paths.js';
@@ -49,26 +49,36 @@ export async function installPiProject(packageRoot, targetRoot, options) {
   return results;
 }
 
-// --clean：先 pi remove 再重装，用来清掉漂移的依赖树和被 pi update 冲掉的补丁。
-// 只卸载 settings.json 里已登记的清单内插件；用户自装的扩展、extensions/ 下的
-// 配置文件（pi-footer.json、pi-tool-display/config.json）和 Pi CLI 本身都不动。
-export async function uninstallPiPlugins(plugins, agentDir = piAgentDir()) {
-  const settings = await readJsonObject(piSettingsPath(agentDir), {});
-  const registered = new Set(
-    (Array.isArray(settings.packages) ? settings.packages : [])
-      .map((entry) => packageNameFromSource(settingsPackageSource(entry)))
-      .filter(Boolean)
-  );
+// pi 按包名匹配 source，不带版本即可；它会同时删 settings 条目和 npm 依赖。
+function removeRegistered(names, registered, reason) {
+  const results = [];
+  for (const name of names) {
+    if (!registered.has(name)) {
+      continue;
+    }
+    runCommand('pi', ['remove', `npm:${name}`]);
+    results.push({ changed: true, action: 'removed', path: `npm:${name}`, reason });
+  }
+  return results;
+}
 
+// 已退役的扩展每次 init/update 都清掉，不必等 --clean：留着会和 pi-footer 抢底部状态栏。
+export async function removeRetiredPackages(agentDir = piAgentDir()) {
+  const registered = await readRegisteredPackageNames(agentDir);
+  return removeRegistered(PI_RETIRED_PACKAGES, registered, '已退役');
+}
+
+// --clean：先 pi remove 再重装，用来清掉漂移的依赖树和被 pi update 冲掉的补丁。
+// 只卸载 settings.json 里已登记的清单内插件；用户自装的扩展和 Pi CLI 本身都不动。
+export async function uninstallPiPlugins(plugins, agentDir = piAgentDir()) {
+  const registered = await readRegisteredPackageNames(agentDir);
   const results = [];
   for (const plugin of plugins) {
     if (!registered.has(plugin.name)) {
       results.push({ changed: false, action: 'skipped', path: plugin.spec, reason: '未登记在 settings.json，无需卸载' });
       continue;
     }
-    // pi 按包名匹配 source，不带版本即可；它会同时删 settings 条目和 npm 依赖。
-    runCommand('pi', ['remove', `npm:${plugin.name}`]);
-    results.push({ changed: true, action: 'removed', path: plugin.spec });
+    results.push(...removeRegistered([plugin.name], registered));
   }
   return results;
 }
@@ -76,9 +86,10 @@ export async function uninstallPiPlugins(plugins, agentDir = piAgentDir()) {
 export async function installPi(packageRoot, options = {}) {
   const agentDir = piAgentDir();
   const plugins = options.piPlugins ?? resolvePiPlugins(defaultPiPluginIds());
-  const ctx = { agentDir, packageRoot };
+  const ctx = { agentDir, packageRoot, clean: Boolean(options.clean) };
   const results = [];
 
+  results.push(...await removeRetiredPackages(agentDir));
   if (options.clean) {
     results.push(...await uninstallPiPlugins(plugins, agentDir));
   }

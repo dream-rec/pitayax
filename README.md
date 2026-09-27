@@ -109,14 +109,13 @@ MCP ids：
 | `tool-display` | `pi-tool-display@0.5.0` | 辅助显示层：`find`/`ls`、MCP 输出、用户消息框和 thinking 标签 |
 | `nano-context` | `pi-nano-context@0.1.1` | 上下文用量显示 |
 | `footer` | `pi-footer@0.5.1` | 可配置的底部状态栏（`/footer` 面板） |
-| `mcp-adapter` | `pi-mcp-adapter@2.15.0` | MCP 适配器，原生读取 `.mcp.json` |
-| `provider-manager` | `@arcaneorion/pi-provider-manager@0.3.9` | `/providers` 面板 + roundrobin 故障转移 |
-| `btw` | `pi-btw@0.4.1` | 生成过程中追加提示 |
-| `magic-context` | `@cortexkit/pi-magic-context@0.40.1` | 本地 embedding 上下文检索 |
-| `aft` | `@cortexkit/aft-pi@0.53.0` | 接管 `read`/`write`/`edit`/`grep`/`bash`，并提供索引搜索、结构导航、诊断和安全恢复 |
+| `mcp-adapter` | `pi-mcp-adapter@2.36.0` | MCP 适配器，原生读取 `.mcp.json` |
+| `provider-manager` | `@arcaneorion/pi-provider-manager@0.4.3` | `/providers` 面板 + roundrobin 故障转移 |
+| `magic-context` | `@cortexkit/pi-magic-context@0.42.6` | 本地 embedding 上下文检索 |
+| `aft` | `@cortexkit/aft-pi@0.57.0` | 接管 `read`/`write`/`edit`/`grep`/`bash`，并提供索引搜索、结构导航、诊断和安全恢复 |
 | `plugin-manager` | `pi-plugin-manager@0.2.3` | `/plugins` 面板：搜索、安装、禁用扩展与 MCP server |
-| `web-access` | `pi-web-access@0.28.0` | `web_search` / `web_fetch` 工具，多搜索后端与网页正文提取 |
-| `advisor-flow` | `pi-advisor-flow@0.6.0` | 顾问模型 + 执行模型分工，默认 Simple mode，配置在 `~/.pi/agent/advisor.json` |
+| `web-access` | `pi-web-access@0.30.0` | `web_search` / `web_fetch` 工具，多搜索后端与网页正文提取 |
+| `advisor` | `@juicesharp/rpiv-advisor@2.11.0` | 执行模型主动向更强的顾问模型征求第二意见，顾问模型用 `/advisor` 选，写在 `~/.config/rpiv-advisor/advisor.json` |
 
 ## Pi 安装
 
@@ -160,7 +159,7 @@ npx pitayax update -p pi --clean
 
 ### 版本钉死
 
-`pi install npm:foo@1.2.3` 只会把 `^1.2.3` 写进 `~/.pi/agent/npm/package.json`，npm 实际解析的是该范围内的**最新**版本（实测 `pi-mcp-adapter@2.15.0` 会装成 `2.31.0`）。`settings.json` 里的钉版本只能阻止 `pi update`，管不住 npm 解析。
+`pi install npm:foo@1.2.3` 只会把 `^1.2.3` 写进 `~/.pi/agent/npm/package.json`，npm 实际解析的是该范围内的**最新**版本（实测 `@cortexkit/aft-pi@0.57.0` 会装成 `0.57.2`）。`settings.json` 里的钉版本只能阻止 `pi update`，管不住 npm 解析。
 
 所以 `pitaya` 会把选中扩展的依赖范围改写成精确版本再重新解析，这样换机器装出来的才是同一组合。`doctor` 会逐个比对实际版本，漂移时报错并提示 `pitaya update -p pi` 修复。用户自行安装、不在清单内的扩展不受影响。
 
@@ -176,7 +175,7 @@ npx pitayax update -p pi --clean
 
 **`pi-mcp-adapter` 的状态行图标** —— 上游用 🔌 emoji 作前缀，和其余 nerd 图标不搭。安装器把 `utils.ts` 里的前缀替换成 nerd-fonts 的 `md-power-plug`（U+F06A5）。
 
-**已退役的 `pi-cometix-footer`** —— 旧版清单里的状态栏，和 `pi-footer` 抢占底部。只要它还登记在 `settings.json` 里，每次 `init`/`update` 都会 `pi remove` 掉，不必等 `--clean`；`doctor` 也会把残留报出来。
+**已退役的扩展** —— `pi-cometix-footer`（旧版清单里的状态栏，和 `pi-footer` 抢占底部）、`pi-btw`、`pi-advisor-flow`（已被 `@juicesharp/rpiv-advisor` 取代）。只要它们还登记在 `settings.json` 里，每次 `init`/`update` 都会 `pi remove` 掉，不必等 `--clean`；`doctor` 也会把残留报出来。
 
 **`pi-footer` 的状态栏布局** —— 上游默认预设把模型、目录、git 挤在一行，窄窗口下会被截断。安装器只在 `~/.pi/agent/extensions/pi-footer.json` 不存在时写入一份三行布局，已存在（用户在 `/footer` 里调过）就不覆盖：
 
@@ -199,9 +198,9 @@ npx pitayax update -p pi --clean
 
 补丁都在包外，`npm install` / `pi update` 覆盖不掉。
 
-**`pi-advisor-flow` 的 Simple mode** —— 上游默认关闭 Simple mode：启用顾问流后，plan / failure / completion 三道自动 gate 和 loop gate 全开，执行模型每到关键节点都要先过顾问，还受每会话调用预算限制。安装器在 `~/.pi/agent/advisor.json` 缺少 `simpleMode` 时写入 `true`，让顾问只在执行模型主动调用 `ask_advisor` 或 `/advisor-manual` 时介入；用户在 `/advisor-settings` 里明确设过的值不覆盖，`advisor` / `executor` 等模型字段一律不动。补丁在包外，`pi update` 不会丢。
+**已退役的 Intel Mac onnxruntime 降版** —— 旧版安装器在 `darwin/x64` 上往 `~/.pi/agent/npm/package.json` 写入 `@huggingface/transformers → onnxruntime-node@1.21.0` 的 overrides，因为 1.22 之后的 `onnxruntime-node` 只带 `darwin/arm64` 二进制，没有 `darwin/x64`。`@cortexkit/pi-magic-context@0.42` 起不再依赖 `@huggingface/transformers`，改用 `onnxruntime-web`——它的 `onnxruntime-node` 是可选依赖，加载不到时回退到 WASM（上游自带这条检测）。于是这个 overrides 键成了死配置：留着不生效，但上游哪天重新引入 `transformers`，它会把 `onnxruntime-node` 悄悄压回 1.21.0。`init`/`update` 会清掉它，`doctor` 也会报出来。
 
-**Intel Mac 的 onnxruntime** —— 仅在 `darwin/x64` 且选装了 `magic-context` 时生效。`@huggingface/transformers@4.2.0` 依赖 `onnxruntime-node@1.24.3`，而 1.22 之后的发布包只带 `darwin/arm64` 二进制，没有 `darwin/x64`。安装器会在 `~/.pi/agent/npm/package.json` 写入 overrides 把它压回 `1.21.0`。Apple Silicon 和 Linux 上不写这条。Windows 不需要这条兼容性降级。对于 Windows 的 hook，安装器不依赖 Unix 可执行权限，并使用 `python`/`python3` 和 npm 的 `.cmd` shim 自动解析。
+对于 Windows 的 hook，安装器不依赖 Unix 可执行权限，并使用 `python`/`python3` 和 npm 的 `.cmd` shim 自动解析。
 
 ### 模型配置
 

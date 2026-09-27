@@ -1,24 +1,21 @@
 import path from 'node:path';
-import process from 'node:process';
 import { readdir, readFile } from 'node:fs/promises';
 import { backupIfExists, pathExists, readTextIfExists, writeIfChanged, writeTextFile } from '../../lib/files.js';
 import { readJsonObject, writeJsonObject } from '../../lib/json.js';
 import { packageNameFromSource, packageVersionFromSource, settingsPackageSource } from './catalog.js';
-import { piAdvisorConfigPath, piExtensionsDir, piNpmDir, piPackageDir, piSettingsPath } from './paths.js';
+import { piExtensionsDir, piNpmDir, piPackageDir, piSettingsPath } from './paths.js';
 
 const PROVIDER_MANAGER = '@arcaneorion/pi-provider-manager';
-const ONNX_PIN = '1.21.0';
+
+// 旧版本为 Intel Mac 写过 @huggingface/transformers.onnxruntime-node=1.21.0。
+const RETIRED_OVERRIDE_PARENT = '@huggingface/transformers';
+const RETIRED_OVERRIDE_KEY = 'onnxruntime-node';
+const RETIRED_OVERRIDE_PIN = '1.21.0';
 
 const NANO_CONTEXT_FOOTER = /ctx\.ui\.setFooter\(\(_tui,\s*theme,\s*footerData\)\s*=>\s*\(\{[\s\S]*?renderFooter\(pi,\s*ctx,\s*footerData,\s*width,\s*theme\),[\s\S]*?\}\)\);/;
 const NANO_CONTEXT_FOOTER_CLEANUP = /ctx\.ui\.setFooter\(undefined\);/;
 const MCP_STATUS_EMOJI = '"🔌 MCP: "';
 const MCP_STATUS_NERD = '"󰚥 MCP: "';
-
-// onnxruntime-node 1.22+ 的发布包只带 darwin/arm64 二进制，没有 darwin/x64。
-// Intel Mac 上不把它压回 1.21.0，magic-context 依赖的 transformers 就加载不起来。
-function needsOnnxPin() {
-  return process.platform === 'darwin' && process.arch === 'x64';
-}
 
 async function readTemplate(packageRoot, fileName) {
   return readFile(path.join(packageRoot, 'templates', 'pi', fileName), 'utf8');
@@ -275,69 +272,48 @@ export const REPAIRS = {
     }
   },
 
-  // 上游默认关闭 Simple mode：启用顾问流后 plan/failure/completion 三道自动 gate 和 loop gate
-  // 全开，执行模型每到关键节点都要先过顾问，还受每会话调用预算限制。这里改成默认 Simple mode，
-  // 顾问只在执行模型主动调用 ask_advisor 或 /advisor-manual 时介入。
-  // 只在 advisor.json 缺少 simpleMode 时写入，用户在 /advisor-settings 里明确设过的值不覆盖，
-  // advisor/executor 等模型字段一律不动。补丁写在包外，pi update 覆盖不掉。
-  'advisor-simple-mode': {
-    label: 'pi-advisor-flow 默认 Simple mode',
-    phase: 'files',
-    async apply({ agentDir }) {
-      const configPath = piAdvisorConfigPath(agentDir);
-      const config = await readJsonObject(configPath, {});
-      if (typeof config.simpleMode === 'boolean') {
-        return { changed: false, action: 'unchanged', path: configPath };
-      }
-      const exists = await pathExists(configPath);
-      await writeJsonObject(configPath, { ...config, simpleMode: true });
-      return { changed: true, action: exists ? 'updated' : 'created', path: configPath };
-    },
-    async check({ agentDir }) {
-      const configPath = piAdvisorConfigPath(agentDir);
-      const config = await readJsonObject(configPath, {});
-      return {
-        name: 'Pi advisor simple mode',
-        ok: typeof config.simpleMode === 'boolean',
-        hint: `Missing simpleMode in ${configPath}; pi-advisor-flow falls back to its upstream default (Simple mode off, automatic gates on). Run pitaya update -p pi.`
-      };
-    }
-  },
-
-  'onnx-x64-override': {
-    label: 'onnxruntime-node 降版 (Intel Mac)',
+  // magic-context 0.42 起不再依赖 @huggingface/transformers，改用 onnxruntime-web，并在
+  // darwin/x64 上回退到它的 WASM 实现（1.22+ 的 onnxruntime-node 确实不发布 darwin/x64）。
+  // 旧安装器写下的 overrides 键因此成了死配置：留着不生效，但上游哪天重新引入 transformers，
+  // 它会悄悄把 onnxruntime-node 压回 1.21.0 而没人记得原因。init/update 时清掉。
+  'retired-onnx-override': {
+    label: '退役的 onnxruntime 降版覆盖',
     phase: 'tree',
     async apply({ agentDir }) {
       const packagePath = path.join(piNpmDir(agentDir), 'package.json');
-      if (!needsOnnxPin()) {
-        return { changed: false, action: 'skipped', path: packagePath, reason: `仅 darwin/x64 需要，当前 ${process.platform}/${process.arch}` };
-      }
       if (!(await pathExists(packagePath))) {
         return { changed: false, action: 'skipped', path: packagePath, reason: 'pi 扩展目录尚未初始化' };
       }
 
       const manifest = await readJsonObject(packagePath, {});
       const overrides = { ...(manifest.overrides ?? {}) };
-      const current = overrides['@huggingface/transformers'];
-      if (current?.['onnxruntime-node'] === ONNX_PIN) {
+      const parent = overrides[RETIRED_OVERRIDE_PARENT];
+      if (parent?.[RETIRED_OVERRIDE_KEY] !== RETIRED_OVERRIDE_PIN) {
         return { changed: false, action: 'unchanged', path: packagePath };
       }
 
-      overrides['@huggingface/transformers'] = { ...(current ?? {}), 'onnxruntime-node': ONNX_PIN };
-      await writeJsonObject(packagePath, { ...manifest, overrides });
+      const nextParent = { ...parent };
+      delete nextParent[RETIRED_OVERRIDE_KEY];
+      if (Object.keys(nextParent).length > 0) {
+        overrides[RETIRED_OVERRIDE_PARENT] = nextParent;
+      } else {
+        delete overrides[RETIRED_OVERRIDE_PARENT];
+      }
+
+      const nextManifest = { ...manifest, overrides };
+      if (Object.keys(overrides).length === 0) {
+        delete nextManifest.overrides;
+      }
+      await writeJsonObject(packagePath, nextManifest);
       return { changed: true, action: 'updated', path: packagePath };
     },
     async check({ agentDir }) {
       const packagePath = path.join(piNpmDir(agentDir), 'package.json');
-      if (!needsOnnxPin()) {
-        return { name: 'Pi onnxruntime x64 override', ok: true, hint: `Not required on ${process.platform}/${process.arch}.` };
-      }
       const manifest = await readJsonObject(packagePath, {});
-      const resolved = await readJsonObject(path.join(piPackageDir('onnxruntime-node', agentDir), 'package.json'), {});
       return {
-        name: 'Pi onnxruntime x64 override',
-        ok: manifest.overrides?.['@huggingface/transformers']?.['onnxruntime-node'] === ONNX_PIN && resolved.version === ONNX_PIN,
-        hint: `onnxruntime-node must be pinned to ${ONNX_PIN} in ${packagePath}; newer releases ship no darwin/x64 binary. Run pitaya update -p pi.`
+        name: 'Pi retired onnxruntime override',
+        ok: manifest.overrides?.[RETIRED_OVERRIDE_PARENT]?.[RETIRED_OVERRIDE_KEY] !== RETIRED_OVERRIDE_PIN,
+        hint: `Stale overrides entry ${RETIRED_OVERRIDE_PARENT}.${RETIRED_OVERRIDE_KEY}=${RETIRED_OVERRIDE_PIN} in ${packagePath}; newer magic-context needs no such pin. Run pitaya update -p pi.`
       };
     }
   }

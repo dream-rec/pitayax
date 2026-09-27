@@ -1,7 +1,7 @@
 /**
  * pi-provider-manager 单入口转发 —— 由 pitaya 安装，请勿手工改动。
  *
- * 0.3.9 的发布包没有 package.json 的 `pi` 字段，pi 于是按约定扫描包内
+ * 0.4.3 的发布包没有 package.json 的 `pi` 字段，pi 于是按约定扫描包内
  * extensions/ 目录，把 6 个子模块当成 6 个独立扩展分别加载。每个子模块
  * 拿到的 ExtensionAPI 实例互不相同，pi.events 无法互通，面板保存配置后
  * 触发不了轮询引擎热重载。

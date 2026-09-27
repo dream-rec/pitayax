@@ -22,7 +22,7 @@ const PI_CLI = '@earendil-works/pi-coding-agent@0.84.2';
 const SETTINGS_DEFAULTS = {
   theme: 'dark',
   defaultProjectTrust: 'always',
-  defaultThinkingLevel: 'high',
+  defaultThinkingLevel: 'xhigh',
   retry: { enabled: true, maxRetries: 10, baseDelayMs: 2000 }
 };
 

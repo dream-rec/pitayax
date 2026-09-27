@@ -36,7 +36,7 @@ export const PI_PLUGIN_CATALOG = [
   {
     id: 'mcp-adapter',
     name: 'pi-mcp-adapter',
-    spec: 'npm:pi-mcp-adapter@2.15.0',
+    spec: 'npm:pi-mcp-adapter@2.36.0',
     label: 'pi-mcp-adapter (MCP 接入)',
     description: '让 Pi 读取项目根 .mcp.json，与 Claude Code 共用同一份 MCP 配置。',
     default: true,
@@ -45,33 +45,25 @@ export const PI_PLUGIN_CATALOG = [
   {
     id: 'provider-manager',
     name: '@arcaneorion/pi-provider-manager',
-    spec: 'npm:@arcaneorion/pi-provider-manager@0.3.9',
+    spec: 'npm:@arcaneorion/pi-provider-manager@0.4.3',
     label: '@arcaneorion/pi-provider-manager (模型面板 + 故障转移)',
     description: '/providers 面板、健康统计和 roundrobin 轮询引擎。必须走单入口加载。',
     default: true,
     repairs: ['provider-manager-single-entry']
   },
   {
-    id: 'btw',
-    name: 'pi-btw',
-    spec: 'npm:pi-btw@0.4.1',
-    label: 'pi-btw (会话中追加提示)',
-    description: '在模型生成过程中插入补充指令，无需打断当前回合。',
-    default: true
-  },
-  {
     id: 'magic-context',
     name: '@cortexkit/pi-magic-context',
-    spec: 'npm:@cortexkit/pi-magic-context@0.40.1',
+    spec: 'npm:@cortexkit/pi-magic-context@0.42.6',
     label: '@cortexkit/pi-magic-context (语义上下文检索)',
-    description: '本地 embedding 检索上下文。Intel Mac 需要把 onnxruntime-node 降到 1.21.0。',
+    description: '本地 embedding 检索上下文；Intel Mac 走上游自带的 onnxruntime-web WASM 回退。',
     default: true,
-    repairs: ['onnx-x64-override']
+    repairs: ['retired-onnx-override']
   },
   {
     id: 'aft',
     name: '@cortexkit/aft-pi',
-    spec: 'npm:@cortexkit/aft-pi@0.53.0',
+    spec: 'npm:@cortexkit/aft-pi@0.57.0',
     label: '@cortexkit/aft-pi (代码工具后端)',
     description: '接管 read/write/edit/grep/bash，并提供索引搜索、结构导航、诊断和安全恢复。',
     default: true
@@ -87,25 +79,25 @@ export const PI_PLUGIN_CATALOG = [
   {
     id: 'web-access',
     name: 'pi-web-access',
-    spec: 'npm:pi-web-access@0.28.0',
+    spec: 'npm:pi-web-access@0.30.0',
     label: 'pi-web-access (联网检索与抓取)',
     description: '提供 web_search / web_fetch 工具，支持多家搜索后端与网页正文提取。',
     default: true
   },
   {
-    id: 'advisor-flow',
-    name: 'pi-advisor-flow',
-    spec: 'npm:pi-advisor-flow@0.6.0',
-    label: 'pi-advisor-flow (顾问模型)',
-    description: '用更强的模型做顾问、较快的模型做执行；默认 Simple mode 按需咨询，配置在 ~/.pi/agent/advisor.json。',
-    default: true,
-    repairs: ['advisor-simple-mode']
+    id: 'advisor',
+    name: '@juicesharp/rpiv-advisor',
+    spec: 'npm:@juicesharp/rpiv-advisor@2.11.0',
+    label: '@juicesharp/rpiv-advisor (顾问模型)',
+    description: '执行模型可主动向更强的顾问模型征求第二意见；顾问模型用 /advisor 选，写在 ~/.config/rpiv-advisor/advisor.json。',
+    default: true
   }
 ];
 
-// 已从清单退役的扩展。只要还登记在 settings.json 里，init/update 都会 pi remove 掉，
-// 否则旧状态栏会和 pi-footer 抢占底部，doctor 也会把它报出来。
-export const PI_RETIRED_PACKAGES = ['pi-cometix-footer'];
+// 已从清单退役的扩展。只要还登记在 settings.json 里，init/update 都会 pi remove 掉：
+// pi-cometix-footer 会和 pi-footer 抢占底部；pi-btw 与 pi-advisor-flow 已被
+// @juicesharp/rpiv-advisor 取代。doctor 也会把残留报出来。
+export const PI_RETIRED_PACKAGES = ['pi-cometix-footer', 'pi-btw', 'pi-advisor-flow'];
 
 export function defaultPiPluginIds() {
   return PI_PLUGIN_CATALOG.filter((item) => item.default).map((item) => item.id);

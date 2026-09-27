@@ -20,11 +20,6 @@ export function piSettingsPath(agentDir = piAgentDir()) {
   return path.join(agentDir, 'settings.json');
 }
 
-// pi-advisor-flow 的全局配置。项目级 .pi/advisor.json 上游明确不生效，只管这一份。
-export function piAdvisorConfigPath(agentDir = piAgentDir()) {
-  return path.join(agentDir, 'advisor.json');
-}
-
 export function piExtensionsDir(agentDir = piAgentDir()) {
   return path.join(agentDir, 'extensions');
 }

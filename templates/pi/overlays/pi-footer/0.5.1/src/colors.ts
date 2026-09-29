@@ -9,7 +9,12 @@ const chalk = {
 export const COLOR_LEVEL_VALUES = ["truecolor", "ansi256", "ansi16", "none"] as const;
 
 // Animated per-character gradient, resolved at render time from the widget fg.
+// "gradient" 是 retro 色的历史写法，其余色板用 "gradient:<name>" 区分。
 export const GRADIENT_COLOR = "gradient";
+export const GRADIENT_PALETTE_NAMES = ["retro", "ice", "mint", "ember", "violet"] as const;
+
+export type GradientPaletteName = (typeof GRADIENT_PALETTE_NAMES)[number];
+export type GradientColor = typeof GRADIENT_COLOR | `gradient:${GradientPaletteName}`;
 
 export type ColorLevel = (typeof COLOR_LEVEL_VALUES)[number];
 export type ColorName =
@@ -30,13 +35,37 @@ export type ColorName =
   | "brightMagenta"
   | "brightCyan"
   | "brightWhite"
-  | typeof GRADIENT_COLOR
+  | GradientColor
   | `ansi256:${number}`
   | `pi:${ThemeColor}`;
 
 interface ColorChoice {
   label: string;
   value: ColorName;
+}
+
+const GRADIENT_LABELS: Record<GradientPaletteName, string> = {
+  retro: "Gradient (retro)",
+  ice: "Gradient (ice)",
+  mint: "Gradient (mint)",
+  ember: "Gradient (ember)",
+  violet: "Gradient (violet)",
+};
+
+const GRADIENT_CHOICES: ColorChoice[] = GRADIENT_PALETTE_NAMES.map((name) => ({
+  label: GRADIENT_LABELS[name],
+  value: name === "retro" ? GRADIENT_COLOR : (`gradient:${name}` as GradientColor),
+}));
+
+export function isGradientColor(value: unknown): value is GradientColor {
+  if (typeof value !== "string") return false;
+  return GRADIENT_CHOICES.some((choice) => choice.value === value);
+}
+
+export function gradientPaletteName(color: GradientColor): GradientPaletteName {
+  return color === GRADIENT_COLOR
+    ? "retro"
+    : (color.slice("gradient:".length) as GradientPaletteName);
 }
 
 export const STANDARD_COLORS: ColorChoice[] = [
@@ -57,7 +86,7 @@ export const STANDARD_COLORS: ColorChoice[] = [
   { label: "Bright Magenta", value: "brightMagenta" },
   { label: "Bright Cyan", value: "brightCyan" },
   { label: "Bright White", value: "brightWhite" },
-  { label: "Gradient (animated)", value: GRADIENT_COLOR },
+  ...GRADIENT_CHOICES,
 ];
 
 const PI_THEME_COLORS: ThemeColor[] = [
@@ -97,10 +126,7 @@ const PI_FOREGROUND_COLORS: ColorChoice[] = PI_THEME_COLORS.map((color) => ({
 
 export const FOREGROUND_COLORS: ColorChoice[] = [...STANDARD_COLORS, ...PI_FOREGROUND_COLORS];
 
-type BasicColorName = Exclude<
-  ColorName,
-  `ansi256:${number}` | `pi:${ThemeColor}` | typeof GRADIENT_COLOR
->;
+type BasicColorName = Exclude<ColorName, `ansi256:${number}` | `pi:${ThemeColor}` | GradientColor>;
 
 const ANSI16_FG: Record<BasicColorName, [number, number]> = {
   default: [39, 49],

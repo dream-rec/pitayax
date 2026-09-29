@@ -4,7 +4,7 @@ import { readFile, chmod } from 'node:fs/promises';
 import { readJsonObject, writeJsonObject, pushUniqueByCommand } from '../../lib/json.js';
 import { writeIfChanged, readTextIfExists, writeTextFile } from '../../lib/files.js';
 import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
-import { installMcpServers } from '../../lib/mcp.js';
+import { retireMcp } from '../../lib/retire.js';
 import { projectPythonCommand } from '../../lib/runtime.js';
 
 const CODEX_GUARD_MATCHER = 'Bash|Shell|shell|apply_patch|Edit|Write';
@@ -28,9 +28,7 @@ export async function installCodex(packageRoot, targetRoot, options) {
   results.push(...await installSelectedSkills(packageRoot, targetRoot, '.codex', options.skills));
   results.push(...await installCommonPitayaFiles(packageRoot, targetRoot));
 
-  if (options.mcps && options.mcps.length > 0) {
-    results.push(await installMcpServers(targetRoot, 'codex', options.mcps));
-  }
+  results.push(...await retireMcp(targetRoot, 'codex'));
 
   if (options.mode === 'strict') {
     results.push(await installCodexHook(packageRoot, targetRoot));

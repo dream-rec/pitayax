@@ -11,11 +11,10 @@
 
 面向 Pi、Codex、Claude Code、OpenCode 和 Cursor 的 Workflow patch 安装聚合器。npm 包名是 `pitayax`，命令名是 `pitaya`：用 `npx pitayax ...` 直接运行，或 `npm install -g pitayax` 后直接输入 `pitaya ...`。
 
-`pitaya` 不替代 Trellis。它是在 Trellis 之上安装一组项目级个人 workflow 约束，同时聚合配置 MCP servers 和 skills；也可以安装 Pi 及配套扩展：
+`pitaya` 不替代 Trellis。它在 Trellis 之上安装项目级的个人 workflow 约束和 PRD 澄清 skill，也可以安装 Pi 及配套扩展（代码检索用 AFT，联网检索用 pi-web-access）。
 
 - 平台选择：Pi / Cursor / Claude Code / OpenCode / Codex
-- Skill 安装：`pitaya-grill-prd`（Trellis patch · grill-me 风格 PRD）、`pitaya-mcp-policy`（MCP 优先级策略）
-- MCP 配置：`fast-context-mcp`（代码语义检索）、`grok-search-mcp`（外部文档/实时网络检索）
+- Skill 安装：`pitaya-grill-prd`（Trellis patch · grill-me 风格 PRD）
 - 交互式 TUI：上下选择、space 选中、enter 下一步/安装
 - PRD 澄清自动采用 grill-me 风格，用户不需要显式提到 `pitaya`
 - Trellis 原生的任务生命周期、spec、hooks、skills、sub-agents、checks 和 finish-work 保持不变
@@ -33,9 +32,8 @@ npx pitayax
 
 1. 选择平台（claude code / codex / opencode / cursor / pi）
 2. 选择 Pi 插件（仅选了 Pi 时出现，默认全选）
-3. 选择要安装的 skills（默认全选；上一步跳过了 Trellis 时不再询问，两个 skill 都是 Trellis patch，没有 Trellis 无从挂载）
-4. 选择要配置的 MCP servers（默认全选）
-5. enter 确认安装
+3. 选择要安装的 skill（默认选中；上一步跳过 Trellis 时不再询问）
+4. enter 确认安装
 
 操作键：
 
@@ -55,7 +53,7 @@ npx pitayax init -p codex
 npx pitayax init -p pi
 ```
 
-`-p` 是必填参数。默认安装范围是项目级，默认模式是 `strict`，默认安装全部 skills 和 MCPs。
+`-p` 是必填参数。默认安装范围是项目级，默认模式是 `strict`，默认安装 PRD skill。
 
 ## 命令
 
@@ -73,9 +71,7 @@ npx pitayax update -p <platform>
 -p cursor|claude|opencode|codex|pi           # 必填
 --mode strict|advisory                        # 默认 strict
 --skills <id,id,...>                          # 指定 skill id，默认全部
---mcps <id,id,...>                            # 指定 mcp id，默认全部
 --skip-skills                                 # 不安装任何 skill
---skip-mcps                                   # 不配置任何 mcp
 --pi-plugins <id,id,...>                      # 指定 Pi 插件 id，默认全部（仅 -p pi）
 --skip-pi-plugins                             # 不安装任何 Pi 插件
 --clean                                       # 先 pi remove 再重装选中的 Pi 插件（仅 -p pi）
@@ -85,36 +81,29 @@ npx pitayax update -p <platform>
 Skill ids：
 
 - `trellis-pitaya-patch`（pitaya-grill-prd）
-- `pitaya-mcp-policy`
-
-MCP ids：
-
-- `fast-context`（fast-context-mcp）
-- `grok-search`（grok-search-mcp）
 
 ## 平台支持
 
-| 平台 | 入口规则 | Skills 目录 | Hook 类型 | MCP 配置文件 |
-|------|---------|------------|----------|-------------|
-| Cursor | `.cursor/rules/pitaya.mdc` | `.cursor/skills/` | `preToolUse` (python) | `.cursor/mcp.json` |
-| Claude Code | `CLAUDE.md` | `.claude/skills/` | `PreToolUse` (python) | `.mcp.json` |
-| OpenCode | `AGENTS.md` | `.opencode/skills/` | `tool.execute.before` plugin (js) | `opencode.json` |
-| Codex | `AGENTS.md` | `.codex/skills/` | `PreToolUse` (python, hooks.json) | `.codex/config.toml` |
-| Pi | `AGENTS.md` + Trellis 原生 `.pi/extensions/trellis/` | `.agents/skills/` | Pi extension events | `.mcp.json`（`pi-mcp-adapter`） |
+| 平台 | 入口规则 | Skills 目录 | Hook 类型 |
+|------|---------|------------|----------|
+| Cursor | `.cursor/rules/pitaya.mdc` | `.cursor/skills/` | `preToolUse` (python) |
+| Claude Code | `CLAUDE.md` | `.claude/skills/` | `PreToolUse` (python) |
+| OpenCode | `AGENTS.md` | `.opencode/skills/` | `tool.execute.before` plugin (js) |
+| Codex | `AGENTS.md` | `.codex/skills/` | `PreToolUse` (python, hooks.json) |
+| Pi | `AGENTS.md` + Trellis 原生 `.pi/extensions/trellis/` | `.agents/skills/` | Pi extension events |
 
 - Pi：可选的终端编码代理安装，以及当前验证过的扩展组合（TUI 里可多选，默认全选）。安装器使用 Node.js 内置跨平台 API，支持 Windows、macOS 和 Ubuntu/Linux；Windows 使用 `%USERPROFILE%/.pi/agent`，macOS/Linux 使用 `$HOME/.pi/agent`，也可用 `PI_CODING_AGENT_DIR` 或 `PI_CODING_AGENT_HOME` 覆盖：
 
 | id | 包 | 作用 |
 |----|----|------|
-| `tool-display` | `pi-tool-display@0.5.0` | 辅助显示层：`find`/`ls`、MCP 输出、用户消息框和 thinking 标签 |
+| `tool-display` | `pi-tool-display@0.5.0` | 辅助显示层：`find`/`ls`、用户消息框和 thinking 标签 |
 | `nano-context` | `pi-nano-context@0.1.1` | 上下文用量显示 |
 | `footer` | `pi-footer@0.5.1` | 可配置的底部状态栏（`/footer` 面板） |
-| `mcp-adapter` | `pi-mcp-adapter@2.36.0` | MCP 适配器，原生读取 `.mcp.json` |
 | `provider-manager` | `@arcaneorion/pi-provider-manager@0.4.3` | `/providers` 面板 + roundrobin 故障转移 |
-| `magic-context` | `@cortexkit/pi-magic-context@0.42.6` | 本地 embedding 上下文检索 |
-| `aft` | `@cortexkit/aft-pi@0.57.0` | 接管 `read`/`write`/`edit`/`grep`/`bash`，并提供索引搜索、结构导航、诊断和安全恢复 |
-| `plugin-manager` | `pi-plugin-manager@0.2.3` | `/plugins` 面板：搜索、安装、禁用扩展与 MCP server |
-| `web-access` | `pi-web-access@0.30.0` | `web_search` / `web_fetch` 工具，多搜索后端与网页正文提取 |
+| `magic-context` | `@cortexkit/pi-magic-context@0.44.1` | 本地 embedding 上下文检索 |
+| `aft` | `@cortexkit/aft-pi@0.58.0` | 接管 `read`/`write`/`edit`/`grep`/`bash`，并提供索引搜索、结构导航、诊断和安全恢复 |
+| `plugin-manager` | `pi-plugin-manager@0.2.3` | `/plugins` 面板：搜索、安装、禁用扩展 |
+| `web-access` | `pi-web-access@0.33.0` | `web_search` / `fetch_content` 工具，多搜索后端与网页正文提取 |
 | `advisor` | `@juicesharp/rpiv-advisor@2.11.0` | 执行模型主动向更强的顾问模型征求第二意见，顾问模型用 `/advisor` 选，写在 `~/.config/rpiv-advisor/advisor.json` |
 
 ## Pi 安装
@@ -126,19 +115,19 @@ npx pitayax init -p pi
 只装其中一部分：
 
 ```bash
-npx pitayax init -p pi --pi-plugins nano-context,mcp-adapter
+npx pitayax init -p pi --pi-plugins nano-context,footer
 npx pitayax init -p pi --skip-pi-plugins
 ```
 
 该命令会：
 
-1. 使用 npm 全局安装固定版本的 `@earendil-works/pi-coding-agent`（产品名称统一简称 **Pi**）；已是该版本则跳过；
-2. 通过 `pi install` 安装选中的 Pi 扩展，其中 `pi-mcp-adapter` 负责 MCP；
-3. 把 `~/.pi/agent/npm/package.json` 里这些扩展的依赖范围收紧成精确版本，再重新解析（见下方“版本钉死”）；
-4. 应用扩展适配（见下方“扩展适配”）；
-5. 补全 `~/.pi/agent/settings.json` 的缺省行为项，并安装 `APPEND_SYSTEM.md`；
-6. 使用 Trellis 原生的 `trellis init ... --pi --yes` 初始化项目级 Pi extension、prompts、agents 和共享 skills；
-7. 将选中的 MCP servers 写入项目根 `.mcp.json`，由 `pi-mcp-adapter` 自动读取；
+1. 按本机实测组合安装 Pi 0.87.1 和选中的扩展；已是对应版本则跳过；
+2. 通过 `pi install` 安装选中的 Pi 扩展，并卸载登记在 `settings.json` 里的退役扩展（含 `pi-mcp-adapter`）；
+3. 将扩展依赖范围收紧为精确版本并重新解析；
+4. 应用扩展适配，包括 footer overlay 和 tok/s 扩展；
+5. 补全 `~/.pi/agent/settings.json` 的缺省行为项，安装 `APPEND_SYSTEM.md`；
+6. 使用 Trellis 原生 `trellis init ... --pi --yes` 初始化项目级 Pi extension、prompts、agents 和共享 skills；
+7. 只清理 Pitaya 旧版写入的两个 MCP server 条目及旧策略 skill，不改动其它 server；
 8. 执行检查：
 
 ```bash
@@ -159,7 +148,7 @@ npx pitayax update -p pi --clean
 
 ### 版本钉死
 
-`pi install npm:foo@1.2.3` 只会把 `^1.2.3` 写进 `~/.pi/agent/npm/package.json`，npm 实际解析的是该范围内的**最新**版本（实测 `@cortexkit/aft-pi@0.57.0` 会装成 `0.57.2`）。`settings.json` 里的钉版本只能阻止 `pi update`，管不住 npm 解析。
+`pi install npm:foo@1.2.3` 只会把 `^1.2.3` 写进 `~/.pi/agent/npm/package.json`，npm 实际解析的是该范围内的**最新**版本。`settings.json` 里的钉版本只能阻止 `pi update`，管不住 npm 解析。
 
 所以 `pitaya` 会把选中扩展的依赖范围改写成精确版本再重新解析，这样换机器装出来的才是同一组合。`doctor` 会逐个比对实际版本，漂移时报错并提示 `pitaya update -p pi` 修复。用户自行安装、不在清单内的扩展不受影响。
 
@@ -167,29 +156,30 @@ npx pitayax update -p pi --clean
 
 扩展组合中有若干上游兼容问题需要适配，`init` 和 `update` 都会自动应用，`doctor` 会逐项校验：
 
-**`pi-tool-display` 与 AFT 的工具归属** —— AFT 默认接管 `read`、`write`、`edit`、`grep` 和 `bash` 的执行及渲染；`pi-tool-display` 不重复覆盖这些工具，只保留 `find`、`ls`、MCP 输出、用户消息框和 thinking 标签。看到 `edit` 使用 AFT 样式是预期行为，并不表示 `pi-tool-display` 失效。安装器只在配置文件不存在时写入这套默认归属，不覆盖用户已有配置。
+**`pi-tool-display` 与 AFT 的工具归属** —— AFT 默认接管 `read`、`write`、`edit`、`grep` 和 `bash` 的执行及渲染；`pi-tool-display` 不重复覆盖这些工具，只保留 `find`、`ls`、用户消息框和 thinking 标签。看到 `edit` 使用 AFT 样式是预期行为。安装器只在配置文件不存在时写入这套默认归属，不覆盖用户已有配置。
 
 **`pi-nano-context` 的 footer 冲突** —— 它会注册自己的 footer，与 `pi-footer` 抢占底部状态栏。安装后剥掉它的 footer 注册。这是直接改 `node_modules` 内的文件，任何一次 `pi install`/`pi update` 都会还原，重跑 `pitaya update -p pi` 即可。
 
-**`pi-footer` 的渐变色 widget** —— 上游 0.5.1 没有 `fg: "gradient"`，模板里模型段用了它，不打补丁就退成白字。安装器把 `templates/pi/overlays/pi-footer/0.5.1/` 下的源文件原样盖进包目录（新增 `gradient.ts`，改 `colors.ts`、`index.ts`、`widgets/instance.ts` 等），让 widget 支持逐字符动画渐变。覆盖层按包版本分目录，上游升版后自动失配并由 `doctor` 报出，不会把旧补丁盖到新代码上。这是直接改 `node_modules`，`pi update` 会还原，重跑 `pitaya update -p pi` 即可。
+**`pi-footer` 的渐变色 widget** —— 上游 0.5.1 没有 `fg: "gradient"`，模板里模型段用了它，不打补丁就退成白字。安装器把 `templates/pi/overlays/pi-footer/0.5.1/` 下的源文件原样盖进包目录（新增 `gradient.ts`、`advisor.ts`，改 `colors.ts`、`index.ts`、`widgets/instance.ts` 等），让 widget 支持逐字符动画渐变。色板除历史写法 `gradient`（retro）外还有 `gradient:ice`、`gradient:mint`、`gradient:ember`、`gradient:violet`，都在 `/footer` 的颜色列表里，用同一个 `fg` 选项切换；`hasAnimatedColor` 识别全部色板，换色板不会让动画定时器停摆。覆盖层按包版本分目录，上游升版后自动失配并由 `doctor` 报出，不会把旧补丁盖到新代码上。这是直接改 `node_modules`，`pi update` 会还原，重跑 `pitaya update -p pi` 即可。
 
-**`pi-mcp-adapter` 的状态行图标** —— 上游用 🔌 emoji 作前缀，和其余 nerd 图标不搭。安装器把 `utils.ts` 里的前缀替换成 nerd-fonts 的 `md-power-plug`（U+F06A5）。
+**已退役的扩展** —— `pi-cometix-footer`（与 `pi-footer` 抢底部）、`pi-btw`、`pi-advisor-flow`（已被 `@juicesharp/rpiv-advisor` 取代）、`pi-mcp-adapter`（MCP 已退役）。只要还登记在 `settings.json`，`init`/`update` 都会 `pi remove`；`doctor` 会报告残留。
 
-**已退役的扩展** —— `pi-cometix-footer`（旧版清单里的状态栏，和 `pi-footer` 抢占底部）、`pi-btw`、`pi-advisor-flow`（已被 `@juicesharp/rpiv-advisor` 取代）。只要它们还登记在 `settings.json` 里，每次 `init`/`update` 都会 `pi remove` 掉，不必等 `--clean`；`doctor` 也会把残留报出来。
-
-**`pi-footer` 的状态栏布局** —— 上游默认预设把模型、目录、git 挤在一行，窄窗口下会被截断。安装器只在 `~/.pi/agent/extensions/pi-footer.json` 不存在时写入一份三行布局，已存在（用户在 `/footer` 里调过）就不覆盖：
+**`pi-footer` 的状态栏布局与 tok/s** —— 上游预设把模型、目录、git 挤在一行。安装器在 `~/.pi/agent/extensions/pi-footer.json` 不存在时写入三行布局，已有用户配置不覆盖；同时安装 `~/.pi/agent/extensions/tps.ts`，将生成速率实时推送给 footer 的 `tps` event widget：
 
 ```
- zuoyebang/deepseek-v4.1-flash | 󰧑 xhigh
-  myrepo |  feature/footer-lines |  a1b2c3d |  (+12,-4)
- 󰚥 MCP: 2 servers enabled
+  zuoyebang/deepseek-v4.1-flash | 󰧑 xhigh
+  zuoyebang/claude-opus-5-5 | 󰧑 high
+  myrepo |  feature/footer-lines |  a1b2c3d |  (+12,-4) | 󱐋 83 tok/s
 ```
 
-- 第一行只放 `model-provider` 与 `thinking-level`。模型段用 widget 自带的 `raw: true` 去掉机器人图标；推理段的图标用 `icon` 选项换成 nerd-fonts 的 `md-brain`（U+F09D1），替代上游默认的 `md-eye`；
-- 第二行放 `cwd-basename`、`git-branch`、`git-sha`、`git-diff`，`git-status` 与 `git-ahead-behind` 同在这一行但默认关闭，在 `/footer` 里打开即可；
-- 第三行不用配：`pi-footer` 会把扩展状态行追加在配置行之后。`extensionStatusRow.hiddenKeys` 隐藏了 `magic-context`，所以这一行只剩 MCP。
+- 第一行是执行模型：`model-provider` 与 `thinking-level`。模型段关掉 `raw`（`raw: true` 会把 `icon` 一起吞掉）并把图标换成 nerd-fonts 的 `nf-oct-star`（U+F41E）；思考强度段的图标用 `icon` 选项换成 `md-brain`（U+F09D1），替代上游默认的 `md-eye`；
+- 第二行是顾问模型：两个 `event` widget，widgetId 分别是 `advisor-model`、`advisor-effort`。值由覆盖层的 `advisor.ts` 给出——它读 `~/.config/rpiv-advisor/advisor.json`（XDG 优先、`~/.config` 回落，与上游 `rpiv-config` 同规则；`~/.pi/agent/advisor.json` 是退役扩展的旧文件，字段不同，不读），渲染前写进这两个 widget，未配置顾问时清空、整行自动隐藏。模型段图标 `nf-oct-moon`（U+F4EE），色板用 `gradient:ice` 与首行的 retro 区分；
+- 第三行放 `cwd-basename`、`git-branch`、`git-sha`、`git-diff`、`tps`；`git-status` 与 `git-ahead-behind` 默认关闭，可在 `/footer` 打开。tok/s 自首个输出 delta 起算（不含 TTFT），流式期间按 300ms 更新，结束后优先以 `usage.output` 修正；
+- `extensionStatusRow.hiddenKeys` 隐藏 `magic-context`；不再登记 MCP 状态项。
 
-布局本身走 `pi-footer` 自己的配置文件与 widget 选项，`pi update` 不会丢；只有模型段的渐变色依赖上面的源码覆盖层。
+布局本身走 `pi-footer` 自己配置文件里的 widget 选项，`pi update` 不会丢；模型段的流光色和顾问行依赖上面的源码覆盖层。`advisor-model` 与 `advisor-effort` 是覆盖层保留的 event widget id，其它扩展不要复用。
+
+手工编辑 `pi-footer.json` 后要先 `/reload` 再进 `/footer`：配置界面用的是会话启动时读进内存的那一份，在没重新加载的会话里按保存（Ctrl+S）会把旧内存配置写回磁盘，盖掉手改的内容。
 
 **`@arcaneorion/pi-provider-manager` 的多实例问题** —— 该发布包的 `package.json` 没有 `pi` 字段，Pi 于是按约定扫描包内 `extensions/` 目录，把 6 个子模块当成 6 个独立扩展分别加载。各子模块拿到的 `ExtensionAPI` 实例互不相同，`pi.events` 无法互通，面板保存配置后触发不了轮询引擎热重载。修复分两步：
 
@@ -214,13 +204,12 @@ npx pitayax update -p pi
 
 ## 平台前置条件
 
-三种平台都需要：
+各平台的使用环境需要：
 
 - Node.js >= 18（建议使用当前 LTS）
 - npm
 - Pi 使用 `npx pitayax init -p pi` 时，会自动安装固定版本 Pi CLI
 - 若使用 Trellis 自动初始化，需要 Python >= 3.9；Windows 请在安装 Python 时勾选加入 PATH
-- 使用 `grok-search-mcp` 需要 `uvx`；Windows、macOS、Ubuntu 都应按官方文档安装 uv
 
 无 TTY 的 CI 或脚本环境不要调用无参数 TUI，改用显式 CLI，例如：
 
@@ -258,101 +247,40 @@ trellis init -u your-name --pi --yes
 - 用户回答后更新 `prd.md`。
 - 实现开始前必须获得明确的 PRD 确认。
 
-## Fast Context MCP
-
-来源：https://github.com/SammySnake-d/fast-context-mcp
-
-```bash
-npm install @sammysnake/fast-context-mcp
-```
-
-MCP server 配置示例：
-
-```json
-{
-  "fast-context": {
-    "command": "npx",
-    "args": [
-      "-y",
-      "--prefer-online",
-      "fast-context-mcp@latest"
-    ],
-    "env": {
-      "WINDSURF_API_KEY": "devin-session-xx"
-    }
-  }
-}
-```
-
-## Grok Search MCP
-
-来源：https://github.com/GuDaStudio/GrokSearch
-
-需要 Python 3.10+ 和 `uv` / `uvx`。
-
-```json
-{
-  "grok-search": {
-    "type": "stdio",
-    "command": "uvx",
-    "args": [
-      "--from",
-      "git+https://github.com/GuDaStudio/GrokSearch@grok-with-tavily",
-      "grok-search"
-    ],
-    "env": {
-      "GROK_API_URL": "https://your-api-endpoint.com/v1",
-      "GROK_API_KEY": "your-grok-api-key",
-      "GROK_MODEL":"your-model",
-      "TAVILY_API_KEY": "optional-tavily-key",
-      "TAVILY_API_URL": "https://api.tavily.com"
-    }
-  }
-}
-```
-
 ## 生成文件
 
 Cursor：
 
 - `.cursor/rules/pitaya.mdc`
 - `.cursor/skills/pitaya-grill-prd/SKILL.md`
-- `.cursor/skills/pitaya-mcp-policy/SKILL.md`
 - `.cursor/hooks/pitaya-guard.py`
 - `.cursor/hooks.json`
-- `.cursor/mcp.json`
 
 Claude Code：
 
 - `CLAUDE.md` pitaya entry block
 - `.claude/skills/pitaya-grill-prd/SKILL.md`
-- `.claude/skills/pitaya-mcp-policy/SKILL.md`
 - `.claude/hooks/pitaya-guard.py`
 - `.claude/settings.json`
-- `.mcp.json`
 
 OpenCode：
 
 - `AGENTS.md` pitaya entry block
 - `.opencode/skills/pitaya-grill-prd/SKILL.md`
-- `.opencode/skills/pitaya-mcp-policy/SKILL.md`
 - `.opencode/plugins/pitaya-guard.js`
-- `opencode.json`
 
 Codex：
 
 - `AGENTS.md` pitaya entry block
 - `.codex/skills/pitaya-grill-prd/SKILL.md`
-- `.codex/skills/pitaya-mcp-policy/SKILL.md`
 - `.codex/hooks/pitaya-guard.py`
 - `.codex/hooks.json`
-- `.codex/config.toml`（含 `[features] hooks = true` 和 `[mcp_servers.*]`）
+- `.codex/config.toml`（含 `[features] hooks = true`）
 
 Trellis：
 
 - 向 `.trellis/workflow.md` 追加 `Pitaya Profile` 区块。
 - 安装 `.trellis/spec/guides/pitaya-prd-policy.md`。
-- 安装 `.trellis/spec/guides/pitaya-mcp-policy.md`。
 
 ## Strict 模式
 
@@ -398,8 +326,8 @@ npx pitayax doctor -p codex
 
 doctor 会检查：
 
-- 必需二进制（node、python3、trellis、uvx）
+- 必需二进制（node、trellis；Pi 另需 pi，其他平台需 python）
 - Trellis 项目目录和 workflow.md
 - 平台对应的规则、skills、hook 文件
-- MCP 配置文件存在性和默认 MCP 条目完整性
+- 已退役的 MCP server 配置、策略 skill 和 Pi 插件是否残留
 - 项目文件中的密钥泄露扫描

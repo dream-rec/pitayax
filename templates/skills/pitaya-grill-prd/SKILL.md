@@ -1,7 +1,7 @@
 ---
 name: pitaya-grill-prd
 description: |
-  Use during Trellis planning when creating or refining a PRD. Applies grill-me style clarification: ask one question at a time, inspect code before asking, provide options and a recommended answer, update prd.md after each decision, verify technical facts against latest knowledge with grok-search-mcp before confirmation, and require PRD confirmation before implementation.
+  Use during Trellis planning when creating or refining a PRD. Applies grill-me style clarification: ask one question at a time, inspect code before asking, provide options and a recommended answer, update prd.md after each decision, verify technical facts against code, official docs or current web sources before confirmation, and require PRD confirmation before implementation.
 ---
 
 # Pitaya Grill PRD
@@ -53,8 +53,8 @@ Identify technical points in the PRD that could be outdated or wrong:
 
 ### How to Verify
 
-1. Prefer `grok-search-mcp` (`web_search`, `web_fetch`) for external docs, live technical information, and release notes.
-2. If `grok-search-mcp` is unavailable, state the fallback reason before using another web tool.
+1. Verify external docs, live technical information and release notes using available web search/fetch tools (Pi: pi-web-access).
+2. Verify project-specific claims against actual code, configs and tests.
 3. For each verified point, record: what was searched, the source, and whether the PRD assumption was confirmed or corrected.
 4. If a search reveals that a PRD assumption is wrong or outdated, update the relevant PRD section immediately and note the correction.
 5. If a technical point cannot be verified (no reliable source found), flag it as an open question rather than assuming it is correct.

@@ -1,4 +1,4 @@
-import { applyColors, GRADIENT_COLOR, stripAnsi } from "../colors.js";
+import { applyColors, gradientPaletteName, isGradientColor, stripAnsi } from "../colors.js";
 import { gradientText } from "../gradient.js";
 import type { WidgetEntry, WidgetOptions } from "../types.js";
 import type { WidgetSpecUnion } from "./registry.js";
@@ -110,11 +110,12 @@ function renderWidgetValue(
 
   const fg = renderOptions.fg ?? options.fg;
   // The gradient is a per-character truecolor run, so it replaces every other style of the widget.
-  if (fg === GRADIENT_COLOR) {
+  if (isGradientColor(fg)) {
     return gradientText(
       stripAnsi(styled),
       Date.now(),
       renderOptions.bold ?? options.bold ?? false,
+      gradientPaletteName(fg),
     );
   }
 

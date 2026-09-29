@@ -4,7 +4,7 @@ import { readFile, chmod } from 'node:fs/promises';
 import { readJsonObject, writeJsonObject, pushUniqueByCommand } from '../../lib/json.js';
 import { writeIfChanged } from '../../lib/files.js';
 import { installCommonPitayaFiles, installRuleFile, installSelectedSkills } from '../shared.js';
-import { installMcpServers } from '../../lib/mcp.js';
+import { retireMcp } from '../../lib/retire.js';
 
 const CURSOR_GUARD_COMMAND = '.cursor/hooks/pitaya-guard.py';
 // 旧版 dream-wf 注册的 hook 命令，更新时原位改成当前命令，避免同时挂两个 guard。
@@ -17,9 +17,7 @@ export async function installCursor(packageRoot, targetRoot, options) {
   results.push(...await installSelectedSkills(packageRoot, targetRoot, '.cursor', options.skills));
   results.push(...await installCommonPitayaFiles(packageRoot, targetRoot));
 
-  if (options.mcps && options.mcps.length > 0) {
-    results.push(await installMcpServers(targetRoot, 'cursor', options.mcps));
-  }
+  results.push(...await retireMcp(targetRoot, 'cursor'));
 
   if (options.mode === 'strict') {
     results.push(await installCursorHook(packageRoot, targetRoot));

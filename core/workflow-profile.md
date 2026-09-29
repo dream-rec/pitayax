@@ -5,7 +5,7 @@
 ## Positioning
 
 - Trellis owns task lifecycle, workflow-state injection, specs, task artifacts, context manifests, sub-agent context injection, checks, spec updates, and finish-work.
-- `pitaya` owns preference patches: grill-me style PRD clarification, MCP tool priority, dependency checks, and strict guardrails.
+- `pitaya` owns preference patches: grill-me style PRD clarification, dependency checks, and strict guardrails.
 - Project files remain the source of truth. Do not rely on chat memory for requirements, project conventions, or task state.
 
 ## Preserved Trellis Flow
@@ -24,8 +24,8 @@ Keep the native Trellis flow:
 ## Pitaya Patch Points
 
 - Use `pitaya-grill-prd` for PRD clarification instead of open-ended brainstorm interviewing.
-- **Before PRD confirmation, perform a Knowledge Verification pass**: use `grok-search-mcp` (`web_search`, `web_fetch`) to verify technical assumptions that could be outdated or wrong. Record results in the `## Knowledge Verification` section of `prd.md`. Correct outdated assumptions. Add `knowledge verified` to the PRD after verification is complete.
+- **Before PRD confirmation, verify uncertain technical assumptions against local code, official documentation or current web sources.** Record results in the `## Knowledge Verification` section of `prd.md`. Correct outdated assumptions and move unverified points to `Open Questions`. Add `knowledge verified` after verification.
 - Generate initial spec candidates from user answers, PRD decisions, and verified project facts.
-- Prefer `fast-context-mcp` for codebase semantic search.
-- Prefer `grok-search-mcp` for external docs, live technical information, and webpage fetching.
+- Use available indexed code search and structural navigation tools for codebase understanding (Pi: AFT).
+- Use available web search/fetch tools for external docs and live information (Pi: pi-web-access).
 - Use strict guardrails to prevent implementation before active task and PRD readiness.

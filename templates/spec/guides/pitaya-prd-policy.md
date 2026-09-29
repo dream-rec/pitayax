@@ -12,7 +12,7 @@ This project uses `pitaya` on top of Trellis.
 - Inspect code, docs, config, existing specs, and task history before asking the user.
 - Update `prd.md` only after each confirmed answer, confirmed existing fact, or explicit decision.
 - Treat task creation consent and implementation approval as separate gates.
-- **Before PRD confirmation, verify technical assumptions against latest knowledge using `grok-search-mcp` (`web_search`, `web_fetch`).** Record verification results in the `## Knowledge Verification` section of `prd.md`. If a search reveals an outdated assumption, correct it immediately. If a point cannot be verified, move it to `Open Questions`.
+- **Before PRD confirmation, verify uncertain technical assumptions against local code, official documentation or current web sources.** Record results in `## Knowledge Verification` in `prd.md`. Correct outdated assumptions and move unverified points to `Open Questions`. Add `knowledge verified` after verification.
 - Do not start implementation until the PRD is confirmed.
 - Write README and project documentation in Chinese.
 - Write code comments in Chinese when comments are necessary, and avoid obvious comments.
@@ -20,7 +20,7 @@ This project uses `pitaya` on top of Trellis.
 
 ## Knowledge Verification
 
-Before requesting PRD confirmation, identify technical risk points that could be outdated or wrong, and verify them with `grok-search-mcp`:
+Before requesting PRD confirmation, identify technical risk points that could be outdated or wrong, and verify them with code, official docs or current web sources:
 
 - API names, signatures, behavior of external packages or services.
 - Framework or library version-specific behavior, deprecations, or breaking changes.

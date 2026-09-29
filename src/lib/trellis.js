@@ -75,21 +75,26 @@ export async function installTrellisProfile(rootDir) {
   }
 
   const [legacyStart, legacyEnd] = LEGACY_PROFILE_MARKERS;
-  const start = existing.indexOf(legacyStart);
-  const end = existing.indexOf(legacyEnd);
-  if (!existing.includes(PITAYA_MARKER) && start !== -1 && end > start) {
-    const next = `${existing.slice(0, start)}${pitayaWorkflowBlock()}${existing.slice(end + legacyEnd.length)}`;
+  const block = pitayaWorkflowBlock();
+  const markerPair = existing.includes(PITAYA_MARKER)
+    ? [PITAYA_MARKER, PITAYA_END_MARKER]
+    : [legacyStart, legacyEnd];
+  const start = existing.indexOf(markerPair[0]);
+  const end = existing.indexOf(markerPair[1]);
+  if (start !== -1 || end !== -1) {
+    if (start === -1 || end <= start) throw new Error(`Trellis profile markers incomplete in ${workflowPath}`);
+    const next = `${existing.slice(0, start)}${block}${existing.slice(end + markerPair[1].length)}`;
+    if (next === existing) return { changed: false, action: 'unchanged', path: workflowPath };
     await writeTextFile(workflowPath, next);
     return { changed: true, action: 'updated', path: workflowPath };
   }
 
-  return appendBlockOnce(workflowPath, PITAYA_MARKER, pitayaWorkflowBlock());
+  return appendBlockOnce(workflowPath, PITAYA_MARKER, block);
 }
 
 export async function writeSpecPolicy(rootDir, name, contents) {
   return writeTextFile(path.join(rootDir, '.trellis', 'spec', 'guides', name), contents);
 }
-
 
 function pitayaWorkflowBlock() {
   return [
@@ -111,23 +116,23 @@ function pitayaWorkflowBlock() {
     '- Use grill-me behavior for requirement discovery: ask one question at a time, provide 2-3 options and a recommended answer, and inspect code/docs/config before asking the user.',
     '- Update `prd.md` only after a user answer, confirmed existing fact, or explicit decision is available.',
     '- Treat PRD confirmation as separate from task creation consent.',
-    '- **Before requesting PRD confirmation, perform a Knowledge Verification pass.** Use `grok-search-mcp` (`web_search`, `web_fetch`) to verify technical assumptions that could be outdated or wrong (API names, hook events, config formats, version-specific behavior, release status). Record results in the `## Knowledge Verification` section of `prd.md`. Correct any outdated assumptions. Move unverified points to `Open Questions`. Add `knowledge verified` to the PRD after verification is complete.',
+    '- **Before requesting PRD confirmation, perform a Knowledge Verification pass.** Verify uncertain technical assumptions against local code, official documentation or current web sources. Record results in `## Knowledge Verification`; move unverified points to `Open Questions`. Add `knowledge verified` after verification.',
     '- Generate initial spec candidates from user answers, PRD decisions, and verified project/code facts; require user review before treating them as stable conventions.',
-    '- Do not guess or fabricate unknown facts, APIs, package behavior, release status, or external documentation; search with preferred MCP tools or ask the user until accurate information is available.',
+    '- Do not guess or fabricate unknown facts, APIs, package behavior, release status, or external documentation; search with available code/web tools or ask the user.',
     '- Write README and project documentation in Chinese. Write code comments in Chinese when comments are necessary, and avoid obvious comments.',
     '- Prefer concise file names: use one word when clear, or lowercase snake_case for necessary multi-word names.',
     '- Continue using `trellis-before-dev`, `trellis-check`, `trellis-update-spec`, and `trellis-break-loop` without replacing them.',
     '',
-    '### Pitaya MCP Tool Policy',
+    '### Pitaya Tool Policy',
     '',
     'Before searching, classify the need:',
     '',
-    '- Codebase semantic understanding: prefer `fast-context-mcp` / `fast_context_search`.',
+    '- Codebase semantic understanding: use available indexed code search / structural navigation tools (Pi: AFT).',
     '- Exact known symbols or files: use exact search or direct reads.',
-    '- External docs, live technical information, and web pages: prefer `grok-search-mcp` / `web_search` or `web_fetch`.',
-    '- If the preferred MCP is unavailable, state the fallback reason before using another tool.',
+    '- External docs and live information: use available web search/fetch tools (Pi: pi-web-access).',
+    '- Verify sources before treating assumptions as fact.',
     '',
-    'Read `.trellis/spec/guides/pitaya-mcp-policy.md` and `.trellis/spec/guides/pitaya-prd-policy.md` when planning or starting implementation.',
+    'Read `.trellis/spec/guides/pitaya-prd-policy.md` when planning or starting implementation.',
     '',
     PITAYA_END_MARKER
   ].join('\n');

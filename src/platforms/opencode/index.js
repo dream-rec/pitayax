@@ -2,7 +2,7 @@ import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { writeIfChanged } from '../../lib/files.js';
 import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
-import { installMcpServers } from '../../lib/mcp.js';
+import { retireMcp } from '../../lib/retire.js';
 
 export async function installOpenCode(packageRoot, targetRoot, options) {
   const results = [];
@@ -11,9 +11,7 @@ export async function installOpenCode(packageRoot, targetRoot, options) {
   results.push(...await installSelectedSkills(packageRoot, targetRoot, '.opencode', options.skills));
   results.push(...await installCommonPitayaFiles(packageRoot, targetRoot));
 
-  if (options.mcps && options.mcps.length > 0) {
-    results.push(await installMcpServers(targetRoot, 'opencode', options.mcps));
-  }
+  results.push(...await retireMcp(targetRoot, 'opencode'));
 
   if (options.mode === 'strict') {
     results.push(await installOpenCodePlugin(packageRoot, targetRoot));

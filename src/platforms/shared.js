@@ -28,10 +28,7 @@ export async function installSpecGuide(packageRoot, targetRoot, fileName) {
 }
 
 export async function installCommonPitayaFiles(packageRoot, targetRoot) {
-  return [
-    await installSpecGuide(packageRoot, targetRoot, 'pitaya-prd-policy.md'),
-    await installSpecGuide(packageRoot, targetRoot, 'pitaya-mcp-policy.md')
-  ];
+  return [await installSpecGuide(packageRoot, targetRoot, 'pitaya-prd-policy.md')];
 }
 
 export async function installRuleFile(packageRoot, targetRoot, sourceRelativePath, targetRelativePath) {
@@ -51,7 +48,7 @@ function locateBlock(text, startMarker, endMarker) {
   return { start, end: end + endMarker.length };
 }
 
-export async function installManagedBlock(packageRoot, targetRoot, sourceRelativePath, targetRelativePath, startMarker, endMarker) {
+export async function installManagedBlock(packageRoot, targetRoot, sourceRelativePath, targetRelativePath, startMarker, endMarker, options = {}) {
   const block = await readFile(path.join(packageRoot, sourceRelativePath), 'utf8');
   const targetPath = path.join(targetRoot, targetRelativePath);
   const existing = await readTextIfExists(targetPath);
@@ -65,7 +62,9 @@ export async function installManagedBlock(packageRoot, targetRoot, sourceRelativ
     ?? LEGACY_BLOCK_MARKERS.map(([legacyStart, legacyEnd]) => locateBlock(existing, legacyStart, legacyEnd)).find(Boolean);
   const next = range
     ? `${existing.slice(0, range.start)}${block.trim()}${existing.slice(range.end)}`
-    : `${existing.trimEnd()}\n\n${block.trim()}\n`;
+    : options.wrapExisting
+      ? `${startMarker}\n\n${existing.trim()}\n\n${endMarker}\n`
+      : `${existing.trimEnd()}\n\n${block.trim()}\n`;
 
   if (next === existing) {
     return { changed: false, action: 'unchanged', path: targetPath };

@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
 import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
-import { installMcpServers } from '../../lib/mcp.js';
+import { retireMcp, retireMcpConfig } from '../../lib/retire.js';
 import { readJsonObject, writeJsonObject } from '../../lib/json.js';
 import {
   PI_RETIRED_PACKAGES,
@@ -15,7 +16,7 @@ import { piAgentDir, piNpmDir, piSettingsPath } from './paths.js';
 import { runCommand } from '../../lib/runtime.js';
 
 // 钉死版本：pi update 会跳过 pinned npm 源，上游变动不会静默冲掉 repairs 里的补丁。
-const PI_CLI = '@earendil-works/pi-coding-agent@0.84.2';
+const PI_CLI = '@earendil-works/pi-coding-agent@0.87.1';
 
 // 只补缺省的行为项。httpProxy、defaultProvider、defaultModel 属于机器/账号特有，
 // 由用户自行配置，这里不写。
@@ -42,10 +43,7 @@ export async function installPiProject(packageRoot, targetRoot, options) {
   results.push(...await installSelectedSkills(packageRoot, targetRoot, '.agents', options.skills));
   results.push(...await installCommonPitayaFiles(packageRoot, targetRoot));
 
-  // pi-mcp-adapter 原生读取项目根 .mcp.json；使用共享格式也方便其他客户端复用。
-  if (options.mcps && options.mcps.length > 0) {
-    results.push(await installMcpServers(targetRoot, 'pi', options.mcps));
-  }
+  results.push(...await retireMcp(targetRoot, 'pi'));
   return results;
 }
 
@@ -62,7 +60,7 @@ function removeRegistered(names, registered, reason) {
   return results;
 }
 
-// 已退役的扩展每次 init/update 都清掉，不必等 --clean：留着会和 pi-footer 抢底部状态栏。
+// 已退役的扩展每次 init/update 都卸载，避免重新引入不再使用的工具。
 export async function removeRetiredPackages(agentDir = piAgentDir()) {
   const registered = await readRegisteredPackageNames(agentDir);
   return removeRegistered(PI_RETIRED_PACKAGES, registered, '已退役');
@@ -90,6 +88,7 @@ export async function installPi(packageRoot, options = {}) {
   const results = [];
 
   results.push(...await removeRetiredPackages(agentDir));
+  results.push(await retireMcpConfig(path.join(agentDir, 'mcp-adapter.json')));
   if (options.clean) {
     results.push(...await uninstallPiPlugins(plugins, agentDir));
   }
@@ -145,7 +144,7 @@ export async function ensurePiConfig(packageRoot) {
     results.push({ changed: true, action: 'updated', path: settingsPath });
   }
 
-  results.push(await installManagedBlock(packageRoot, agentDir, 'templates/pi/append-system.md', 'APPEND_SYSTEM.md', '<!-- PITAYA:START -->', '<!-- PITAYA:END -->'));
+  results.push(await installManagedBlock(packageRoot, agentDir, 'templates/pi/append-system.md', 'APPEND_SYSTEM.md', '<!-- PITAYA:START -->', '<!-- PITAYA:END -->', { wrapExisting: true }));
   return results;
 }
 

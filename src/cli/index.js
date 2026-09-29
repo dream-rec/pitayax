@@ -13,9 +13,7 @@ import {
 import { formatRelative } from "../lib/files.js";
 import {
   resolveSkills,
-  resolveMcps,
   defaultSkillIds,
-  defaultMcpIds,
 } from "../lib/catalog.js";
 import { installCursor } from "../platforms/cursor/index.js";
 import { installClaudeCode } from "../platforms/claude-code/index.js";
@@ -117,16 +115,14 @@ async function init(rootDir, options) {
   // Pi 同时安装全局 CLI/扩展，并用 Trellis 原生 --pi 生成项目资产。
   if (options.platform === "pi") {
     const skillIds = options.skillIds ?? defaultSkillIds();
-    const mcpIds = options.mcpIds ?? defaultMcpIds();
     const piPluginIds = options.piPluginIds ?? defaultPiPluginIds();
     assertKnownPiPlugins(piPluginIds);
     writeOutput(formatBanner());
     const skills = resolveSkills(options.skills ? options.skills.map((s) => s.id) : skillIds);
-    const mcps = resolveMcps(options.mcps ? options.mcps.map((m) => m.id) : mcpIds);
     const piPlugins = resolvePiPlugins(
       options.piPlugins ? options.piPlugins.map((p) => p.id) : piPluginIds,
     );
-    const initOptions = { ...options, mode: options.mode ?? "strict", skills, mcps, piPlugins };
+    const initOptions = { ...options, mode: options.mode ?? "strict", skills, piPlugins };
     const results = [
       ...(await installPi(packageRoot, initOptions)),
       ...(await ensurePiConfig(packageRoot)),
@@ -149,20 +145,15 @@ async function init(rootDir, options) {
     return;
   }
 
-  // 来自 TUI 的 options 已带 skills/mcps；来自 CLI 的 options 需要解析。
+  // 来自 TUI 的 options 已带 skills；来自 CLI 的 options 需要解析。
   const platform = options.platform;
   const mode = options.mode ?? "strict";
 
   const skillIds = options.skillIds ?? defaultSkillIds();
-  const mcpIds = options.mcpIds ?? defaultMcpIds();
   const skills = resolveSkills(
     options.skills ? options.skills.map((s) => s.id) : skillIds,
   );
-  const mcps = resolveMcps(
-    options.mcps ? options.mcps.map((m) => m.id) : mcpIds,
-  );
-
-  const initOptions = { ...options, platform, mode, skills, mcps };
+  const initOptions = { ...options, platform, mode, skills };
 
   writeOutput(formatBanner());
 
@@ -238,11 +229,6 @@ function parseArgs(argv) {
       continue;
     }
 
-    if (arg === "--skip-mcps") {
-      options.mcpIds = [];
-      continue;
-    }
-
     if (arg === "--skip-pi-plugins") {
       options.piPluginIds = [];
       continue;
@@ -289,15 +275,6 @@ function parseArgs(argv) {
 
     if (arg === "--skills") {
       options.skillIds = readOptionValue(arg, rest, index)
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--mcps") {
-      options.mcpIds = readOptionValue(arg, rest, index)
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
@@ -439,9 +416,7 @@ function helpText() {
     "  -p, --platform <platform>       cursor|claude|opencode|codex|pi",
     "  --mode strict|advisory          默认 strict",
     "  --skills <id,id,...>            指定要安装的 skill id（默认全部）",
-    "  --mcps <id,id,...>              指定要配置的 mcp id（默认全部）",
     "  --skip-skills                    不安装任何 skill",
-    "  --skip-mcps                     不配置任何 mcp",
     "  --pi-plugins <id,id,...>        指定要安装的 Pi 插件 id（默认全部，仅 -p pi）",
     "  --skip-pi-plugins               不安装任何 Pi 插件",
     "  --clean                         卸载后重装选中的 Pi 插件，重置依赖树与补丁（仅 -p pi）",
@@ -449,10 +424,7 @@ function helpText() {
     "  --install-deps --developer <n>  自动初始化 Trellis",
     "",
     "Skill ids:",
-    "  trellis-pitaya-patch, pitaya-mcp-policy",
-    "",
-    "MCP ids:",
-    "  fast-context, grok-search",
+    "  trellis-pitaya-patch",
     "",
     "Pi plugin ids:",
     `  ${PI_PLUGIN_CATALOG.map((plugin) => plugin.id).join(", ")}`,
@@ -461,9 +433,9 @@ function helpText() {
     "  npx pitayax",
     "  npx pitayax init -p cursor",
     "  npx pitayax init -p pi",
-    "  npx pitayax init -p pi --pi-plugins nano-context,mcp-adapter",
+    "  npx pitayax init -p pi --pi-plugins nano-context,footer",
     "  npx pitayax update -p pi --clean",
-    "  npx pitayax init -p claude --skills trellis-pitaya-patch --mcps fast-context",
+    "  npx pitayax init -p claude --skills trellis-pitaya-patch",
     "  npx pitayax doctor -p codex",
   ].join("\n");
 }

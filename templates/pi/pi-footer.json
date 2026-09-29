@@ -9,8 +9,8 @@
         "type": "model-provider",
         "enabled": true,
         "options": {
-          "raw": true,
-          "icon": "",
+          "raw": false,
+          "icon": " ",
           "fg": "gradient",
           "bg": "default",
           "bold": false
@@ -28,6 +28,38 @@
           "fg": "cyan",
           "bg": "default",
           "bold": false
+        }
+      }
+    ],
+    [
+      {
+        "id": "event-mu553nex-advisor-model",
+        "type": "event",
+        "enabled": true,
+        "options": {
+          "raw": false,
+          "hideWhenEmpty": true,
+          "icon": " ",
+          "text": "",
+          "fg": "gradient:ice",
+          "bg": "default",
+          "bold": false,
+          "widgetId": "advisor-model"
+        }
+      },
+      {
+        "id": "event-mu553nex-advisor-effort",
+        "type": "event",
+        "enabled": true,
+        "options": {
+          "raw": false,
+          "hideWhenEmpty": true,
+          "icon": "󰧑 ",
+          "text": "",
+          "fg": "cyan",
+          "bg": "default",
+          "bold": false,
+          "widgetId": "advisor-effort"
         }
       }
     ],
@@ -107,6 +139,21 @@
         }
       },
       {
+        "id": "event-mu553nex-tps",
+        "type": "event",
+        "enabled": true,
+        "options": {
+          "raw": false,
+          "hideWhenEmpty": false,
+          "icon": "󱐋 ",
+          "text": "",
+          "fg": "pi:borderAccent",
+          "bg": "default",
+          "bold": false,
+          "widgetId": "tps"
+        }
+      },
+      {
         "id": "git-ahead-behind-mu553nex-8dj8f6",
         "type": "git-ahead-behind",
         "enabled": false,
@@ -136,8 +183,7 @@
       "magic-context"
     ],
     "knownKeys": [
-      "magic-context",
-      "mcp"
+      "magic-context"
     ]
   }
 }

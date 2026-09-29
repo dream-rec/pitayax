@@ -12,7 +12,7 @@ Use grill-me behavior during Trellis planning. This replaces only the interview 
 - If a question can be answered by exploring the codebase, docs, config, existing specs, or task history, explore first instead of asking the user.
 - After each answer, update `prd.md` immediately.
 - Keep open questions explicit until they are answered or intentionally deferred.
-- **Before requesting PRD confirmation, perform a Knowledge Verification pass.** Use `grok-search-mcp` (`web_search`, `web_fetch`) to verify technical assumptions that could be outdated or wrong. Record results in the `## Knowledge Verification` section of `prd.md`. Correct any outdated assumptions. Move unverified points to `Open Questions`. Add `knowledge verified` to the PRD after verification is complete.
+- **Before requesting PRD confirmation, perform a Knowledge Verification pass.** Verify uncertain assumptions against local code, official documentation or current web sources. Record results in the `## Knowledge Verification` section of `prd.md`; move unverified points to `Open Questions`. Add `knowledge verified` after verification.
 - Do not start implementation until the PRD is reviewed and confirmed.
 
 ## Required PRD Sections

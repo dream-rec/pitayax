@@ -4,7 +4,7 @@ import { readFile, chmod } from 'node:fs/promises';
 import { readJsonObject, writeJsonObject, pushUniqueByCommand } from '../../lib/json.js';
 import { writeIfChanged } from '../../lib/files.js';
 import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
-import { installMcpServers } from '../../lib/mcp.js';
+import { retireMcp } from '../../lib/retire.js';
 import { projectPythonCommand } from '../../lib/runtime.js';
 
 // 旧版 dream-wf 以及不同 python 解释器名写入的 hook 命令，更新时统一迁移到当前命令。
@@ -23,9 +23,7 @@ export async function installClaudeCode(packageRoot, targetRoot, options) {
   results.push(...await installSelectedSkills(packageRoot, targetRoot, '.claude', options.skills));
   results.push(...await installCommonPitayaFiles(packageRoot, targetRoot));
 
-  if (options.mcps && options.mcps.length > 0) {
-    results.push(await installMcpServers(targetRoot, 'claude', options.mcps));
-  }
+  results.push(...await retireMcp(targetRoot, 'claude'));
 
   if (options.mode === 'strict') {
     results.push(await installClaudeHook(packageRoot, targetRoot));

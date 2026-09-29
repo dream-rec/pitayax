@@ -2,9 +2,7 @@ import process from "node:process";
 import { SUPPORTED_PLATFORMS, PLATFORM_LABELS } from "../lib/platforms.js";
 import {
   SKILL_CATALOG,
-  MCP_CATALOG,
   defaultSkillIds,
-  defaultMcpIds,
 } from "../lib/catalog.js";
 import { detectTrellis } from "../lib/trellis.js";
 import { trellisPlatformFlag } from "../lib/platforms.js";
@@ -317,7 +315,7 @@ function createStepper() {
   };
 }
 
-function renderSummary({ platform, skills, mcps, mode, trellisAction, piPlugins, skillsSkipped }) {
+function renderSummary({ platform, skills, mode, trellisAction, piPlugins, skillsSkipped }) {
   const lines = [];
   lines.push(colorize("即将安装:", COLORS.magenta));
   lines.push(`  平台: ${colorize(PLATFORM_LABELS[platform], COLORS.bold)}`);
@@ -350,18 +348,10 @@ function renderSummary({ platform, skills, mcps, mode, trellisAction, piPlugins,
       );
     }
   }
-  lines.push(`  MCPs (${mcps.length}):`);
-  if (mcps.length === 0) {
-    lines.push(colorize("    (无)", COLORS.dim));
-  } else {
-    mcps.forEach((m) =>
-      lines.push(`    ${colorize("✓", COLORS.green)} ${m.name}`),
-    );
-  }
   return lines.join("\n");
 }
 
-// 交互式安装向导：平台 -> Pi 插件（可选）-> Trellis 基础依赖 -> skill（跳过 Trellis 时略过）-> mcp -> 确认安装。
+// 交互式安装向导：平台 -> Pi 插件（可选）-> Trellis 基础依赖 -> skill（跳过 Trellis 时略过）-> 确认安装。
 export async function runInteractive() {
   const step = createStepper();
 
@@ -451,8 +441,7 @@ export async function runInteractive() {
     }
   }
 
-  // pitaya 的 skills（grill-me 风格 PRD、MCP 优先级策略）都是挂在 Trellis workflow 上的 patch，
-  // 跳过 Trellis 时没有可挂载的对象，整步略过不再询问。
+  // pitaya 的 PRD skill 挂在 Trellis workflow 上，跳过 Trellis 时没有可挂载的对象。
   const skillsSkipped = !trellisState.exists && !installDeps;
   const skillIds = skillsSkipped
     ? []
@@ -463,16 +452,7 @@ export async function runInteractive() {
         defaults: defaultSkillIds(),
       });
 
-  // 选择 MCPs。
-  const mcpIds = await multiSelect({
-    title: step("选择要配置的 MCP Servers"),
-    hint: "这些 MCP 会被写入对应平台的 mcp 配置文件，默认全选。",
-    items: MCP_CATALOG,
-    defaults: defaultMcpIds(),
-  });
-
   const skills = SKILL_CATALOG.filter((item) => skillIds.includes(item.id));
-  const mcps = MCP_CATALOG.filter((item) => mcpIds.includes(item.id));
   const piPlugins = piPluginIds
     ? PI_PLUGIN_CATALOG.filter((item) => piPluginIds.includes(item.id))
     : undefined;
@@ -481,7 +461,7 @@ export async function runInteractive() {
   // 确认安装。
   process.stdout.write("\x1B[2J\x1B[H");
   process.stdout.write(
-    renderSummary({ platform, skills, mcps, mode, trellisAction, piPlugins, skillsSkipped }),
+    renderSummary({ platform, skills, mode, trellisAction, piPlugins, skillsSkipped }),
   );
   process.stdout.write("\n\n");
 
@@ -495,9 +475,7 @@ export async function runInteractive() {
     platform,
     mode,
     skillIds,
-    mcpIds,
     skills,
-    mcps,
     piPluginIds,
     piPlugins,
     installDeps,

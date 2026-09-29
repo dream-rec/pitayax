@@ -5,7 +5,8 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 
-import { GRADIENT_COLOR } from "./colors.js";
+import { readAdvisorInfo } from "./advisor.js";
+import { isGradientColor } from "./colors.js";
 import {
   cloneConfig,
   configWithPreset,
@@ -32,6 +33,9 @@ import { WidgetStore } from "./widgets/store.js";
 interface FooterDataLike {
   getGitBranch(): string | null;
 }
+
+const ADVISOR_MODEL_WIDGET_ID = "advisor-model";
+const ADVISOR_EFFORT_WIDGET_ID = "advisor-effort";
 
 export default async function statuslineExtension(pi: ExtensionAPI): Promise<void> {
   let config = await loadConfig();
@@ -67,6 +71,7 @@ export default async function statuslineExtension(pi: ExtensionAPI): Promise<voi
         },
         invalidate(): void {},
         render(width: number): string[] {
+          syncAdvisorWidgets(eventWidgets);
           const data = collectStatuslineData(ctx, pi, footerData, eventWidgets.values, {
             config,
             requestRender: () => tui.requestRender(),
@@ -134,6 +139,7 @@ export default async function statuslineExtension(pi: ExtensionAPI): Promise<voi
       const handled = await handleArgs(args, ctx, config, async (next) => setConfig(next, ctx));
       if (handled) return;
 
+      syncAdvisorWidgets(eventWidgets);
       const previewData = collectStatuslineData(
         ctx,
         pi,
@@ -259,8 +265,16 @@ async function handleArgs(
 
 function hasAnimatedColor(config: StatuslineConfig): boolean {
   return config.lines.some((line) =>
-    line.some((widget) => widget.enabled && widget.options.fg === GRADIENT_COLOR),
+    line.some((widget) => widget.enabled && isGradientColor(widget.options.fg)),
   );
+}
+
+// advisor 没有对外事件，数据只能从 rpiv-advisor 的配置文件里读；读到后写进 event widget
+// 的值，未配置时清空（配置了 hideWhenEmpty 的段落随之消失，整行不再输出）。
+function syncAdvisorWidgets(eventWidgets: EventWidgetValues): void {
+  const advisor = readAdvisorInfo();
+  eventWidgets.update({ widgetId: ADVISOR_MODEL_WIDGET_ID, value: advisor.model ?? null });
+  eventWidgets.update({ widgetId: ADVISOR_EFFORT_WIDGET_ID, value: advisor.effort ?? null });
 }
 
 function getTextVerbosity(

@@ -14,8 +14,6 @@ const RETIRED_OVERRIDE_PIN = '1.21.0';
 
 const NANO_CONTEXT_FOOTER = /ctx\.ui\.setFooter\(\(_tui,\s*theme,\s*footerData\)\s*=>\s*\(\{[\s\S]*?renderFooter\(pi,\s*ctx,\s*footerData,\s*width,\s*theme\),[\s\S]*?\}\)\);/;
 const NANO_CONTEXT_FOOTER_CLEANUP = /ctx\.ui\.setFooter\(undefined\);/;
-const MCP_STATUS_EMOJI = '"🔌 MCP: "';
-const MCP_STATUS_NERD = '"󰚥 MCP: "';
 
 async function readTemplate(packageRoot, fileName) {
   return readFile(path.join(packageRoot, 'templates', 'pi', fileName), 'utf8');
@@ -230,44 +228,47 @@ export const REPAIRS = {
     label: 'pi-footer 状态栏布局',
     phase: 'files',
     async apply(ctx) {
-      return seedConfigFile(ctx, ['pi-footer.json'], 'pi-footer.json');
+      const seeded = await seedConfigFile(ctx, ['pi-footer.json'], 'pi-footer.json');
+      const configPath = path.join(piExtensionsDir(ctx.agentDir), 'pi-footer.json');
+      const config = await readJsonObject(configPath, {});
+      const row = config.extensionStatusRow;
+      if (!row || typeof row !== 'object') return seeded;
+      let changed = false;
+      for (const key of ['hiddenKeys', 'knownKeys']) {
+        if (Array.isArray(row[key]) && row[key].includes('mcp')) {
+          row[key] = row[key].filter((value) => value !== 'mcp');
+          changed = true;
+        }
+      }
+      if (!changed) return seeded;
+      await writeJsonObject(configPath, config);
+      return { changed: true, action: 'updated', path: configPath, reason: '移除已退役的 MCP 状态项' };
     },
     async check({ agentDir }) {
       const configPath = path.join(piExtensionsDir(agentDir), 'pi-footer.json');
+      const config = await readJsonObject(configPath, {});
+      const row = config.extensionStatusRow;
       return {
         name: 'Pi footer config',
-        ok: await pathExists(configPath),
-        hint: `Missing ${configPath}. Run pitaya update -p pi.`
+        ok: await pathExists(configPath) && !['hiddenKeys', 'knownKeys'].some((key) => row?.[key]?.includes('mcp')),
+        hint: `Missing ${configPath} or retired MCP status key remains. Run pitaya update -p pi.`
       };
     }
   },
 
-  // 上游状态行前缀是 🔌 emoji，和 nerd 图标的其余 footer 不搭；换成 md-power-plug。
-  'mcp-status-icon': {
-    label: 'pi-mcp-adapter 状态行图标',
+  'footer-tps': {
+    label: 'pi-footer tok/s 扩展',
     phase: 'files',
-    async apply({ agentDir }) {
-      const utilsPath = path.join(piPackageDir('pi-mcp-adapter', agentDir), 'utils.ts');
-      const source = await readTextIfExists(utilsPath);
-      if (!source) {
-        return { changed: false, action: 'skipped', path: utilsPath, reason: 'pi-mcp-adapter 未安装' };
-      }
-      if (source.includes(MCP_STATUS_NERD)) {
-        return { changed: false, action: 'unchanged', path: utilsPath };
-      }
-      if (!source.includes(MCP_STATUS_EMOJI)) {
-        throw new Error(`无法安全替换 pi-mcp-adapter 状态图标，上游实现可能已变更: ${utilsPath}`);
-      }
-      await writeTextFile(utilsPath, source.replace(MCP_STATUS_EMOJI, MCP_STATUS_NERD));
-      return { changed: true, action: 'updated', path: utilsPath };
+    async apply({ agentDir, packageRoot }) {
+      const target = path.join(piExtensionsDir(agentDir), 'tps.ts');
+      return writeIfChanged(target, await readTemplate(packageRoot, 'tps.ts'));
     },
-    async check({ agentDir }) {
-      const utilsPath = path.join(piPackageDir('pi-mcp-adapter', agentDir), 'utils.ts');
-      const source = await readTextIfExists(utilsPath);
+    async check({ agentDir, packageRoot }) {
+      const target = path.join(piExtensionsDir(agentDir), 'tps.ts');
       return {
-        name: 'Pi MCP status icon',
-        ok: Boolean(source) && source.includes(MCP_STATUS_NERD),
-        hint: `pi-mcp-adapter status line still uses the emoji plug. Run pitaya update -p pi to repair ${utilsPath}`
+        name: 'Pi footer tok/s extension',
+        ok: (await readTextIfExists(target))?.trimEnd() === (await readTemplate(packageRoot, 'tps.ts')).trimEnd(),
+        hint: `Missing or modified ${target}. Run pitaya update -p pi.`
       };
     }
   },
@@ -349,7 +350,7 @@ export async function checkRepairs(plugins, ctx) {
 }
 
 // pi install npm:foo@1.2.3 只把 ^1.2.3 写进 npm/package.json，npm 实际解析的是该范围内
-// 的最新版（实测 pi-mcp-adapter@2.15.0 会装成 2.31.0）。settings.json 里的钉版本只能
+// 的最新版（实测 @cortexkit/aft-pi@0.57.0 会装成 0.57.2）。settings.json 里的钉版本只能
 // 阻止 pi update，管不住 npm 解析。要让换机器装出同一组合，必须收紧成精确版本。
 export async function pinExactVersions(plugins, agentDir) {
   const packagePath = path.join(piNpmDir(agentDir), 'package.json');

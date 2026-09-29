@@ -11,7 +11,7 @@ export const PI_PLUGIN_CATALOG = [
     name: 'pi-tool-display',
     spec: 'npm:pi-tool-display@0.5.0',
     label: 'pi-tool-display (辅助显示层)',
-    description: '渲染 find/ls、MCP 输出、用户消息框和 thinking 标签；read/write/edit/grep/bash 交给 AFT。',
+    description: '渲染 find/ls、用户消息框和 thinking 标签；read/write/edit/grep/bash 交给 AFT。',
     default: true,
     repairs: ['tool-display-config']
   },
@@ -29,18 +29,9 @@ export const PI_PLUGIN_CATALOG = [
     name: 'pi-footer',
     spec: 'npm:pi-footer@0.5.1',
     label: 'pi-footer (状态栏)',
-    description: '可配置的底部状态栏：模型/推理等级、目录与 git 状态分两行，扩展状态另起一行。',
+    description: '可配置的底部状态栏：执行模型、顾问模型、目录/git/tok/s 分行显示。',
     default: true,
-    repairs: ['footer-gradient', 'footer-config']
-  },
-  {
-    id: 'mcp-adapter',
-    name: 'pi-mcp-adapter',
-    spec: 'npm:pi-mcp-adapter@2.36.0',
-    label: 'pi-mcp-adapter (MCP 接入)',
-    description: '让 Pi 读取项目根 .mcp.json，与 Claude Code 共用同一份 MCP 配置。',
-    default: true,
-    repairs: ['mcp-status-icon']
+    repairs: ['footer-gradient', 'footer-config', 'footer-tps']
   },
   {
     id: 'provider-manager',
@@ -54,7 +45,7 @@ export const PI_PLUGIN_CATALOG = [
   {
     id: 'magic-context',
     name: '@cortexkit/pi-magic-context',
-    spec: 'npm:@cortexkit/pi-magic-context@0.42.6',
+    spec: 'npm:@cortexkit/pi-magic-context@0.44.1',
     label: '@cortexkit/pi-magic-context (语义上下文检索)',
     description: '本地 embedding 检索上下文；Intel Mac 走上游自带的 onnxruntime-web WASM 回退。',
     default: true,
@@ -63,7 +54,7 @@ export const PI_PLUGIN_CATALOG = [
   {
     id: 'aft',
     name: '@cortexkit/aft-pi',
-    spec: 'npm:@cortexkit/aft-pi@0.57.0',
+    spec: 'npm:@cortexkit/aft-pi@0.58.0',
     label: '@cortexkit/aft-pi (代码工具后端)',
     description: '接管 read/write/edit/grep/bash，并提供索引搜索、结构导航、诊断和安全恢复。',
     default: true
@@ -73,15 +64,15 @@ export const PI_PLUGIN_CATALOG = [
     name: 'pi-plugin-manager',
     spec: 'npm:pi-plugin-manager@0.2.3',
     label: 'pi-plugin-manager (插件管理)',
-    description: '/plugins 面板：搜索、安装、禁用扩展与 MCP server，按需关掉不用的工具。',
+    description: '/plugins 面板：搜索、安装、禁用扩展。',
     default: true
   },
   {
     id: 'web-access',
     name: 'pi-web-access',
-    spec: 'npm:pi-web-access@0.30.0',
+    spec: 'npm:pi-web-access@0.33.0',
     label: 'pi-web-access (联网检索与抓取)',
-    description: '提供 web_search / web_fetch 工具，支持多家搜索后端与网页正文提取。',
+    description: '提供 web_search / fetch_content 等工具，支持多家搜索后端与网页正文提取。',
     default: true
   },
   {
@@ -94,10 +85,8 @@ export const PI_PLUGIN_CATALOG = [
   }
 ];
 
-// 已从清单退役的扩展。只要还登记在 settings.json 里，init/update 都会 pi remove 掉：
-// pi-cometix-footer 会和 pi-footer 抢占底部；pi-btw 与 pi-advisor-flow 已被
-// @juicesharp/rpiv-advisor 取代。doctor 也会把残留报出来。
-export const PI_RETIRED_PACKAGES = ['pi-cometix-footer', 'pi-btw', 'pi-advisor-flow'];
+// 已退役扩展在 init/update 时卸载，doctor 会报告残留。
+export const PI_RETIRED_PACKAGES = ['pi-cometix-footer', 'pi-btw', 'pi-advisor-flow', 'pi-mcp-adapter'];
 
 export function defaultPiPluginIds() {
   return PI_PLUGIN_CATALOG.filter((item) => item.default).map((item) => item.id);

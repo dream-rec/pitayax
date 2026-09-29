@@ -311,10 +311,11 @@ export const REPAIRS = {
     async check({ agentDir }) {
       const packagePath = path.join(piNpmDir(agentDir), 'package.json');
       const manifest = await readJsonObject(packagePath, {});
+      const stale = manifest.overrides?.[RETIRED_OVERRIDE_PARENT]?.[RETIRED_OVERRIDE_KEY] === RETIRED_OVERRIDE_PIN;
       return {
         name: 'Pi retired onnxruntime override',
-        ok: manifest.overrides?.[RETIRED_OVERRIDE_PARENT]?.[RETIRED_OVERRIDE_KEY] !== RETIRED_OVERRIDE_PIN,
-        hint: `Stale overrides entry ${RETIRED_OVERRIDE_PARENT}.${RETIRED_OVERRIDE_KEY}=${RETIRED_OVERRIDE_PIN} in ${packagePath}; newer magic-context needs no such pin. Run pitaya update -p pi.`
+        ok: !stale,
+        hint: stale ? `Stale overrides entry ${RETIRED_OVERRIDE_PARENT}.${RETIRED_OVERRIDE_KEY}=${RETIRED_OVERRIDE_PIN} in ${packagePath}; newer magic-context needs no such pin. Run pitaya update -p pi.` : 'No retired onnxruntime override.'
       };
     }
   }

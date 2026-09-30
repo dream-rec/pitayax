@@ -152,6 +152,8 @@ npx pitayax update -p pi --clean
 
 所以 `pitaya` 会把选中扩展的依赖范围改写成精确版本再重新解析，这样换机器装出来的才是同一组合。`doctor` 会逐个比对实际版本，漂移时报错并提示 `pitaya update -p pi` 修复。用户自行安装、不在清单内的扩展不受影响。
 
+钉死有代价：某台机器上的 registry 视野并不总是公共 registry——npm 缓存过期（`prefer-offline`）、镜像同步滞后、企业代理都可能让一个已发布版本在本机“不存在”，`pi install` 会直接以 `ETARGET` 失败。所以安装某个插件时，失败会先按 registry 复核一次（`npm view --prefer-online`，顺带刷新本机缓存）并重试原版本；若本机 registry 确实看不到该版本，才退到同一条 minor 线里可用的最高版本，并在安装报告里写明替换原因。registry 完全不可用时不静默换版本，直接报错。
+
 ### 扩展适配
 
 扩展组合中有若干上游兼容问题需要适配，`init` 和 `update` 都会自动应用，`doctor` 会逐项校验：
@@ -192,7 +194,7 @@ npx pitayax update -p pi --clean
 
 **已退役的 Intel Mac onnxruntime 降版** —— 旧版安装器在 `darwin/x64` 上往 `~/.pi/agent/npm/package.json` 写入 `@huggingface/transformers → onnxruntime-node@1.21.0` 的 overrides，因为 1.22 之后的 `onnxruntime-node` 只带 `darwin/arm64` 二进制，没有 `darwin/x64`。`@cortexkit/pi-magic-context@0.42` 起不再依赖 `@huggingface/transformers`，改用 `onnxruntime-web`——它的 `onnxruntime-node` 是可选依赖，加载不到时回退到 WASM（上游自带这条检测）。于是这个 overrides 键成了死配置：留着不生效，但上游哪天重新引入 `transformers`，它会把 `onnxruntime-node` 悄悄压回 1.21.0。`init`/`update` 会清掉它，`doctor` 也会报出来。
 
-对于 Windows 的 hook，安装器不依赖 Unix 可执行权限，并使用 `python`/`python3` 和 npm 的 `.cmd` shim 自动解析。
+对于 Windows 的 hook，安装器不依赖 Unix 可执行权限，并使用 `python`/`python3` 和 npm 的 `.cmd` shim 自动解析。走 shell 的命令行（需要 `.cmd` shim 的 Windows 场景）会自行给含空格的参数加引号，因此 `C:\Users\John Smith\...` 这类带空格的用户目录不会把命令拼坏。
 
 ### 模型配置
 

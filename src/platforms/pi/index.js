@@ -13,6 +13,7 @@ import {
   resolvePiPlugins
 } from './catalog.js';
 import { applyRepairs, pinExactVersions } from './repairs.js';
+import { installPinnedPlugin } from './registry.js';
 import { piAgentDir, piNpmDir, piSettingsPath } from './paths.js';
 import { runCommand } from '../../lib/runtime.js';
 
@@ -104,19 +105,26 @@ export async function installPi(packageRoot, options = {}) {
     results.push({ changed: true, action: 'installed', path: PI_CLI });
   }
 
+  const resolved = {};
   for (const plugin of plugins) {
     if (await isPluginInstalled(plugin, agentDir)) {
       results.push({ changed: false, action: 'unchanged', path: plugin.spec });
       continue;
     }
-    runCommand('pi', ['install', plugin.spec]);
-    results.push({ changed: true, action: 'installed', path: plugin.spec });
+    const installed = await installPinnedPlugin(plugin, (spec) => runCommand('pi', ['install', spec]), piNpmDir(agentDir));
+    resolved[plugin.name] = installed.version;
+    results.push({
+      changed: true,
+      action: 'installed',
+      path: installed.spec,
+      ...(installed.substituted ? { reason: installed.reason } : {})
+    });
   }
 
   // 先做会改动依赖树的修复，改了才重解析；再做直接改 node_modules 内文件的修复，
   // 否则 npm install 可能把补过的文件还原。
   const treeResults = [
-    await pinExactVersions(plugins, agentDir),
+    await pinExactVersions(plugins, agentDir, resolved),
     ...(await applyRepairs(plugins, ctx, 'tree'))
   ];
   results.push(...treeResults);

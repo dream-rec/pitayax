@@ -397,7 +397,7 @@ export async function checkRepairs(plugins, ctx) {
 // pi install npm:foo@1.2.3 只把 ^1.2.3 写进 npm/package.json，npm 实际解析的是该范围内
 // 的最新版（实测 @cortexkit/aft-pi@0.57.0 会装成 0.57.2）。settings.json 里的钉版本只能
 // 阻止 pi update，管不住 npm 解析。要让换机器装出同一组合，必须收紧成精确版本。
-export async function pinExactVersions(plugins, agentDir) {
+export async function pinExactVersions(plugins, agentDir, resolved = {}) {
   const packagePath = path.join(piNpmDir(agentDir), 'package.json');
   if (!(await pathExists(packagePath))) {
     return { changed: false, action: 'skipped', path: packagePath, reason: 'pi 扩展目录尚未初始化' };
@@ -407,7 +407,7 @@ export async function pinExactVersions(plugins, agentDir) {
   const dependencies = { ...(manifest.dependencies ?? {}) };
   let changed = false;
   for (const plugin of plugins) {
-    const version = packageVersionFromSource(plugin.spec);
+    const version = resolved[plugin.name] ?? packageVersionFromSource(plugin.spec);
     // 只收紧 catalog 内的包，用户自行安装的其它扩展保持原样。
     if (version && dependencies[plugin.name] !== undefined && dependencies[plugin.name] !== version) {
       dependencies[plugin.name] = version;

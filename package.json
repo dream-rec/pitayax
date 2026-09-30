@@ -1,13 +1,13 @@
 {
   "name": "pitayax",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Trellis workflow patch installer for Pi, Cursor, Claude Code, OpenCode and Codex.",
   "type": "module",
   "bin": {
     "pitaya": "bin/pitaya.js"
   },
   "scripts": {
-    "check": "node --check bin/pitaya.js && node --check src/cli/index.js && node --check src/lib/files.js && node --check src/lib/runtime.js && node --check src/lib/platforms.js && node --check src/lib/trellis.js && node --check src/lib/json.js && node --check src/lib/catalog.js && node --check src/lib/retire.js && node --check src/doctor/index.js && node --check src/deps/index.js && node --check src/platforms/shared.js && node --check src/platforms/cursor/index.js && node --check src/platforms/claude-code/index.js && node --check src/platforms/opencode/index.js && node --check src/platforms/codex/index.js && node --check src/platforms/pi/paths.js && node --check src/platforms/pi/catalog.js && node --check src/platforms/pi/repairs.js && node --check src/platforms/pi/index.js && node --check src/tui/index.js && node --check templates/hooks/opencode/pitaya-guard.js"
+    "check": "node --check bin/pitaya.js && node --check src/cli/index.js && node --check src/lib/files.js && node --check src/lib/runtime.js && node --check src/lib/platforms.js && node --check src/lib/trellis.js && node --check src/lib/json.js && node --check src/lib/catalog.js && node --check src/lib/retire.js && node --check src/doctor/index.js && node --check src/deps/index.js && node --check src/platforms/shared.js && node --check src/platforms/cursor/index.js && node --check src/platforms/claude-code/index.js && node --check src/platforms/opencode/index.js && node --check src/platforms/codex/index.js && node --check src/platforms/pi/paths.js && node --check src/platforms/pi/catalog.js && node --check src/platforms/pi/footer.js && node --check src/platforms/pi/repairs.js && node --check src/platforms/pi/index.js && node --check src/tui/index.js && node --check templates/hooks/opencode/pitaya-guard.js"
   },
   "keywords": [
     "pitaya",

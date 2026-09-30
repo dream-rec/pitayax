@@ -3,6 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { backupIfExists, pathExists, readTextIfExists, writeIfChanged, writeTextFile } from '../../lib/files.js';
 import { readJsonObject, writeJsonObject } from '../../lib/json.js';
 import { packageNameFromSource, packageVersionFromSource, settingsPackageSource } from './catalog.js';
+import { footerIssues, mergeFooterConfig } from './footer.js';
 import { piExtensionsDir, piNpmDir, piPackageDir, piSettingsPath } from './paths.js';
 
 const PROVIDER_MANAGER = '@arcaneorion/pi-provider-manager';
@@ -167,7 +168,7 @@ export const REPAIRS = {
       results.push(await writeIfChanged(shimPath, await readTemplate(packageRoot, 'providers.ts')));
       return results;
     },
-    async check({ agentDir }) {
+    async check({ agentDir, packageRoot }) {
       const settingsPath = piSettingsPath(agentDir);
       const settings = await readJsonObject(settingsPath, {});
       const entry = (Array.isArray(settings.packages) ? settings.packages : []).find(
@@ -183,8 +184,8 @@ export const REPAIRS = {
         },
         {
           name: 'Pi provider-manager single-entry shim',
-          ok: await pathExists(shimPath),
-          hint: `Missing ${shimPath}. Run pitaya update -p pi.`
+          ok: (await readTextIfExists(shimPath)) === (await readTemplate(packageRoot, 'providers.ts')),
+          hint: `Missing or modified ${shimPath}. Run pitaya update -p pi.`
         }
       ];
     }
@@ -229,29 +230,34 @@ export const REPAIRS = {
     phase: 'files',
     async apply(ctx) {
       const seeded = await seedConfigFile(ctx, ['pi-footer.json'], 'pi-footer.json');
+      if (seeded.changed) return seeded;
       const configPath = path.join(piExtensionsDir(ctx.agentDir), 'pi-footer.json');
       const config = await readJsonObject(configPath, {});
-      const row = config.extensionStatusRow;
-      if (!row || typeof row !== 'object') return seeded;
-      let changed = false;
-      for (const key of ['hiddenKeys', 'knownKeys']) {
-        if (Array.isArray(row[key]) && row[key].includes('mcp')) {
-          row[key] = row[key].filter((value) => value !== 'mcp');
-          changed = true;
-        }
+      const template = JSON.parse(await readTemplate(ctx.packageRoot, 'pi-footer.json'));
+      const next = mergeFooterConfig(config, template);
+      if (JSON.stringify(next) === JSON.stringify(config)) {
+        return { changed: false, action: 'unchanged', path: configPath };
       }
-      if (!changed) return seeded;
-      await writeJsonObject(configPath, config);
-      return { changed: true, action: 'updated', path: configPath, reason: '移除已退役的 MCP 状态项' };
+      const backup = await backupIfExists(configPath);
+      await writeJsonObject(configPath, next);
+      return {
+        changed: true,
+        action: 'updated',
+        path: configPath,
+        reason: `补齐执行模型图标、顾问行与 tok/s；原配置已备份到 ${path.basename(backup)}`
+      };
     },
-    async check({ agentDir }) {
+    async check({ agentDir, packageRoot }) {
       const configPath = path.join(piExtensionsDir(agentDir), 'pi-footer.json');
-      const config = await readJsonObject(configPath, {});
-      const row = config.extensionStatusRow;
+      if (!(await pathExists(configPath))) {
+        return { name: 'Pi footer config', ok: false, hint: `Missing ${configPath}. Run pitaya update -p pi.` };
+      }
+      const template = JSON.parse(await readTemplate(packageRoot, 'pi-footer.json'));
+      const issues = footerIssues(await readJsonObject(configPath, {}), template);
       return {
         name: 'Pi footer config',
-        ok: await pathExists(configPath) && !['hiddenKeys', 'knownKeys'].some((key) => row?.[key]?.includes('mcp')),
-        hint: `Missing ${configPath} or retired MCP status key remains. Run pitaya update -p pi.`
+        ok: issues.length === 0,
+        hint: issues.length ? `${issues.join('、')}。Run pitaya update -p pi.` : '执行模型、顾问行与 tok/s 已对齐模板。'
       };
     }
   },

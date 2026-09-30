@@ -1,6 +1,7 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
+import { readTextIfExists } from '../../lib/files.js';
 import { retireMcp, retireMcpConfig } from '../../lib/retire.js';
 import { readJsonObject, writeJsonObject } from '../../lib/json.js';
 import {
@@ -17,6 +18,9 @@ import { runCommand } from '../../lib/runtime.js';
 
 // 钉死版本：pi update 会跳过 pinned npm 源，上游变动不会静默冲掉 repairs 里的补丁。
 const PI_CLI = '@earendil-works/pi-coding-agent@0.87.1';
+
+const APPEND_BLOCK_START = '<!-- PITAYA:START -->';
+const APPEND_BLOCK_END = '<!-- PITAYA:END -->';
 
 // 只补缺省的行为项。httpProxy、defaultProvider、defaultModel 属于机器/账号特有，
 // 由用户自行配置，这里不写。
@@ -144,8 +148,27 @@ export async function ensurePiConfig(packageRoot) {
     results.push({ changed: true, action: 'updated', path: settingsPath });
   }
 
-  results.push(await installManagedBlock(packageRoot, agentDir, 'templates/pi/append-system.md', 'APPEND_SYSTEM.md', '<!-- PITAYA:START -->', '<!-- PITAYA:END -->', { wrapExisting: true }));
+  results.push(await installManagedBlock(packageRoot, agentDir, 'templates/pi/append-system.md', 'APPEND_SYSTEM.md', APPEND_BLOCK_START, APPEND_BLOCK_END, { wrapExisting: true }));
   return results;
+}
+
+function blockBody(text, start, end) {
+  const startIndex = text.indexOf(start);
+  const endIndex = text.indexOf(end);
+  return startIndex === -1 || endIndex < startIndex ? undefined : text.slice(startIndex + start.length, endIndex).trim();
+}
+
+// 偏好文件由标记块托管：块必须存在且内容等于模板，否则用户上一版偏好会一直生效。
+export async function checkAppendSystem(packageRoot, agentDir = piAgentDir()) {
+  const targetPath = path.join(agentDir, 'APPEND_SYSTEM.md');
+  const template = await readFile(path.join(packageRoot, 'templates', 'pi', 'append-system.md'), 'utf8');
+  const expected = blockBody(template, APPEND_BLOCK_START, APPEND_BLOCK_END);
+  const actual = blockBody((await readTextIfExists(targetPath)) ?? '', APPEND_BLOCK_START, APPEND_BLOCK_END);
+  return {
+    name: 'Pi APPEND_SYSTEM block',
+    ok: actual !== undefined && actual === expected,
+    hint: `Missing or outdated ${APPEND_BLOCK_START} block in ${targetPath}. Run pitaya update -p pi.`
+  };
 }
 
 export { PI_CLI };

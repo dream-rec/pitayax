@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { PI_RETIRED_PACKAGES, readInstalledPluginIds, readRegisteredPackageNames, resolvePiPlugins } from '../platforms/pi/catalog.js';
 import { checkPinnedVersions, checkRepairs } from '../platforms/pi/repairs.js';
 import { piAgentDir, piSettingsPath } from '../platforms/pi/paths.js';
-import { PI_CLI } from '../platforms/pi/index.js';
+import { PI_CLI, checkAppendSystem } from '../platforms/pi/index.js';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -31,6 +31,7 @@ export async function checkDependencies(rootDir, platform) {
     }
     checks.push(...await checkPinnedVersions(plugins, agentDir));
     checks.push(...await checkRepairs(plugins, { agentDir, packageRoot }));
+    checks.push(await checkAppendSystem(packageRoot, agentDir));
 
     const registered = await readRegisteredPackageNames(agentDir);
     const retired = PI_RETIRED_PACKAGES.filter((name) => registered.has(name));

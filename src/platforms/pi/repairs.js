@@ -385,15 +385,18 @@ export async function pinExactVersions(plugins, agentDir) {
 }
 
 // 同时验证包存在和版本是否就是钉死的那个，能直接暴露 caret 造成的版本漂移。
+// npm 侧的范围也要是精确版本：pinExactVersions 每次都收紧，范围退回 caret 说明被 pi install 动过。
 export async function checkPinnedVersions(plugins, agentDir) {
+  const range = (await readJsonObject(path.join(piNpmDir(agentDir), 'package.json'), {})).dependencies ?? {};
   const checks = [];
   for (const plugin of plugins) {
     const expected = packageVersionFromSource(plugin.spec);
     const manifest = await readJsonObject(path.join(piPackageDir(plugin.name, agentDir), 'package.json'), {});
+    const declared = range[plugin.name];
     checks.push({
       name: `Pi package ${plugin.name}`,
-      ok: manifest.version === expected,
-      hint: `Expected ${plugin.name}@${expected}, found ${manifest.version ?? 'nothing'}. Run pitaya update -p pi.`
+      ok: manifest.version === expected && (declared === undefined || declared === expected),
+      hint: `Expected ${plugin.name}@${expected} with an exact npm range, found ${manifest.version ?? 'nothing'} / ${declared ?? 'undeclared'}. Run pitaya update -p pi.`
     });
   }
   return checks;

@@ -100,7 +100,7 @@ Skill ids：
 | `nano-context` | `pi-nano-context@0.1.1` | 上下文用量显示 |
 | `footer` | `pi-footer@0.5.1` | 可配置的底部状态栏（`/footer` 面板） |
 | `provider-manager` | `@arcaneorion/pi-provider-manager@0.4.3` | `/providers` 面板 + roundrobin 故障转移 |
-| `magic-context` | `@cortexkit/pi-magic-context@0.44.1` | 本地 embedding 上下文检索 |
+| `magic-context` | `@cortexkit/pi-magic-context@0.44.1` | 本地 embedding 上下文检索（配置缺失时 `init`/`update` 拉起上游 setup 向导） |
 | `aft` | `@cortexkit/aft-pi@0.58.0` | 接管 `read`/`write`/`edit`/`grep`/`bash`，并提供索引搜索、结构导航、诊断和安全恢复 |
 | `plugin-manager` | `pi-plugin-manager@0.2.3` | `/plugins` 面板：搜索、安装、禁用扩展 |
 | `web-access` | `pi-web-access@0.33.0` | `web_search` / `fetch_content` 工具，多搜索后端与网页正文提取 |
@@ -164,7 +164,7 @@ npx pitayax update -p pi --clean
 
 **已退役的扩展** —— `pi-cometix-footer`（与 `pi-footer` 抢底部）、`pi-btw`、`pi-advisor-flow`（已被 `@juicesharp/rpiv-advisor` 取代）、`pi-mcp-adapter`（MCP 已退役）。只要还登记在 `settings.json`，`init`/`update` 都会 `pi remove`；`doctor` 会报告残留。
 
-**`pi-footer` 的状态栏布局与 tok/s** —— 上游预设把模型、目录、git 挤在一行。安装器在 `~/.pi/agent/extensions/pi-footer.json` 不存在时写入三行布局，已有用户配置不覆盖；同时安装 `~/.pi/agent/extensions/tps.ts`，将生成速率实时推送给 footer 的 `tps` event widget：
+**`pi-footer` 的状态栏布局与 tok/s** —— 上游预设把模型、目录、git 挤在一行。安装器在 `~/.pi/agent/extensions/pi-footer.json` 不存在时写入三行布局，已有配置只补齐托管的五个 widget（执行模型、思考强度、advisor 两个 event widget、`tps`）的图标与配色，其余 widget、行和配置项保持用户原样，改动前先备份；同时安装 `~/.pi/agent/extensions/tps.ts`，将生成速率实时推送给 footer 的 `tps` event widget：
 
 ```
   zuoyebang/deepseek-v4.1-flash | 󰧑 xhigh
@@ -187,6 +187,8 @@ npx pitayax update -p pi --clean
 - 写入 `~/.pi/agent/extensions/providers.ts`，单点转发到包的 `index.ts`。
 
 补丁都在包外，`npm install` / `pi update` 覆盖不掉。
+
+**`magic-context` 的配置向导** —— 插件拿不到必要配置时（historian / dreamer 模型、embedding）会故障安全地保持关闭。`doctor` 按插件的实际读取顺序（项目 `.cortexkit/magic-context.jsonc` 覆盖用户 `~/.config/cortexkit/magic-context.jsonc`，跟随 `XDG_CONFIG_HOME`）解析两层配置并检查这几项；缺配置时 `init`/`update` 会拉起上游的交互式向导 `npx --yes npm:@cortexkit/magic-context@0.44.3 setup --harness pi`，由它挑模型、写配置，安装器不自己编配置。非交互终端下跳过并提示命令，`doctor` 继续报缺。
 
 **已退役的 Intel Mac onnxruntime 降版** —— 旧版安装器在 `darwin/x64` 上往 `~/.pi/agent/npm/package.json` 写入 `@huggingface/transformers → onnxruntime-node@1.21.0` 的 overrides，因为 1.22 之后的 `onnxruntime-node` 只带 `darwin/arm64` 二进制，没有 `darwin/x64`。`@cortexkit/pi-magic-context@0.42` 起不再依赖 `@huggingface/transformers`，改用 `onnxruntime-web`——它的 `onnxruntime-node` 是可选依赖，加载不到时回退到 WASM（上游自带这条检测）。于是这个 overrides 键成了死配置：留着不生效，但上游哪天重新引入 `transformers`，它会把 `onnxruntime-node` 悄悄压回 1.21.0。`init`/`update` 会清掉它，`doctor` 也会报出来。
 

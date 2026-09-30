@@ -1,10 +1,13 @@
 import path from 'node:path';
+import process from 'node:process';
 import { readdir, readFile } from 'node:fs/promises';
 import { backupIfExists, pathExists, readTextIfExists, writeIfChanged, writeTextFile } from '../../lib/files.js';
 import { readJsonObject, writeJsonObject } from '../../lib/json.js';
 import { packageNameFromSource, packageVersionFromSource, settingsPackageSource } from './catalog.js';
+import { inspectMagicContext, magicContextSetupArgs } from './magic-context.js';
 import { footerIssues, mergeFooterConfig } from './footer.js';
 import { piExtensionsDir, piNpmDir, piPackageDir, piSettingsPath } from './paths.js';
+import { runCommand } from '../../lib/runtime.js';
 
 const PROVIDER_MANAGER = '@arcaneorion/pi-provider-manager';
 
@@ -322,6 +325,41 @@ export const REPAIRS = {
         name: 'Pi retired onnxruntime override',
         ok: !stale,
         hint: stale ? `Stale overrides entry ${RETIRED_OVERRIDE_PARENT}.${RETIRED_OVERRIDE_KEY}=${RETIRED_OVERRIDE_PIN} in ${packagePath}; newer magic-context needs no such pin. Run pitaya update -p pi.` : 'No retired onnxruntime override.'
+      };
+    }
+  },
+
+  // 插件本体没配好会故障安全地保持关闭：historian/dreamer 模型、embedding 都是 setup 向导写的。
+  // 这里只做结构检测，缺配置时把上游向导原样拉起来，不自己编配置。
+  'magic-context-setup': {
+    label: 'magic-context 配置向导',
+    phase: 'files',
+    async apply({ rootDir = process.cwd(), env, plugin }) {
+      const before = await inspectMagicContext(rootDir, env);
+      if (before.ok) return { changed: false, action: 'unchanged', path: before.source };
+      if (!(process.stdin.isTTY && process.stdout.isTTY)) {
+        return {
+          changed: false,
+          action: 'skipped',
+          path: before.source,
+          reason: `${before.issues.join('、')}；需在交互式终端运行 npx ${magicContextSetupArgs(plugin.setup).join(' ')}`
+        };
+      }
+
+      runCommand('npx', magicContextSetupArgs(plugin.setup));
+      const after = await inspectMagicContext(rootDir, env);
+      return after.ok
+        ? { changed: true, action: 'configured', path: after.source, reason: '已通过 setup 向导写入配置' }
+        : { changed: false, action: 'skipped', path: after.source, reason: `向导结束后仍缺少：${after.issues.join('、')}` };
+    },
+    async check({ rootDir = process.cwd(), env, plugin }) {
+      const state = await inspectMagicContext(rootDir, env);
+      return {
+        name: 'Pi magic-context setup',
+        ok: state.ok,
+        hint: state.ok
+          ? 'historian、dreamer、embedding 均已配置。'
+          : `${state.issues.join('、')}。Run pitaya update -p pi（交互式向导）或 npx ${magicContextSetupArgs(plugin.setup).join(' ')}。`
       };
     }
   }

@@ -122,7 +122,7 @@ async function init(rootDir, options) {
     const piPlugins = resolvePiPlugins(
       options.piPlugins ? options.piPlugins.map((p) => p.id) : piPluginIds,
     );
-    const initOptions = { ...options, mode: options.mode ?? "strict", skills, piPlugins };
+    const initOptions = { ...options, mode: options.mode ?? "strict", skills, piPlugins, rootDir };
     const results = [
       ...(await installPi(packageRoot, initOptions)),
       ...(await ensurePiConfig(packageRoot)),

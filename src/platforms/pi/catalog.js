@@ -48,8 +48,9 @@ export const PI_PLUGIN_CATALOG = [
     spec: 'npm:@cortexkit/pi-magic-context@0.44.1',
     label: '@cortexkit/pi-magic-context (语义上下文检索)',
     description: '本地 embedding 检索上下文；Intel Mac 走上游自带的 onnxruntime-web WASM 回退。',
+    setup: 'npm:@cortexkit/magic-context@0.44.3',
     default: true,
-    repairs: ['retired-onnx-override']
+    repairs: ['retired-onnx-override', 'magic-context-setup']
   },
   {
     id: 'aft',

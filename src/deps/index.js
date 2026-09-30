@@ -30,7 +30,7 @@ export async function checkDependencies(rootDir, platform) {
       });
     }
     checks.push(...await checkPinnedVersions(plugins, agentDir));
-    checks.push(...await checkRepairs(plugins, { agentDir, packageRoot }));
+    checks.push(...await checkRepairs(plugins, { agentDir, packageRoot, rootDir }));
     checks.push(await checkAppendSystem(packageRoot, agentDir));
 
     const registered = await readRegisteredPackageNames(agentDir);

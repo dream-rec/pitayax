@@ -1,6 +1,6 @@
 {
   "name": "pitayax",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "Trellis workflow patch installer for Pi, Cursor, Claude Code, OpenCode and Codex.",
   "type": "module",
   "bin": {

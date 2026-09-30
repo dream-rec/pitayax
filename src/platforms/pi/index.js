@@ -13,7 +13,7 @@ import {
   resolvePiPlugins
 } from './catalog.js';
 import { applyRepairs, pinExactVersions } from './repairs.js';
-import { installPinnedPlugin } from './registry.js';
+import { installPinnedPlugin, directEnv, unreachableProxies } from './registry.js';
 import { piAgentDir, piNpmDir, piSettingsPath } from './paths.js';
 import { runCommand } from '../../lib/runtime.js';
 
@@ -86,6 +86,12 @@ export async function uninstallPiPlugins(plugins, agentDir = piAgentDir()) {
   return results;
 }
 
+// 代理端口连不上时，重新解析依赖树也走直连，否则这一步会再次 ECONNREFUSED。
+async function npmEnvForAgent() {
+  const proxies = await unreachableProxies();
+  return proxies.unreachable.length > 0 ? directEnv() : process.env;
+}
+
 export async function installPi(packageRoot, options = {}) {
   const agentDir = piAgentDir();
   const plugins = options.piPlugins ?? resolvePiPlugins(defaultPiPluginIds());
@@ -111,7 +117,10 @@ export async function installPi(packageRoot, options = {}) {
       results.push({ changed: false, action: 'unchanged', path: plugin.spec });
       continue;
     }
-    const installed = await installPinnedPlugin(plugin, (spec) => runCommand('pi', ['install', spec]), piNpmDir(agentDir));
+    const installed = await installPinnedPlugin(plugin, {
+      piInstall: (spec, env) => runCommand('pi', ['install', spec], { env }),
+      npmDir: piNpmDir(agentDir)
+    });
     resolved[plugin.name] = installed.version;
     results.push({
       changed: true,
@@ -129,7 +138,7 @@ export async function installPi(packageRoot, options = {}) {
   ];
   results.push(...treeResults);
   if (treeResults.some((result) => result.changed)) {
-    runCommand('npm', ['install'], { cwd: piNpmDir(agentDir) });
+    runCommand('npm', ['install'], { cwd: piNpmDir(agentDir), env: await npmEnvForAgent() });
     results.push({ changed: true, action: 'reinstalled', path: piNpmDir(agentDir) });
   }
 

@@ -152,7 +152,12 @@ npx pitayax update -p pi --clean
 
 所以 `pitaya` 会把选中扩展的依赖范围改写成精确版本再重新解析，这样换机器装出来的才是同一组合。`doctor` 会逐个比对实际版本，漂移时报错并提示 `pitaya update -p pi` 修复。用户自行安装、不在清单内的扩展不受影响。
 
-钉死有代价：某台机器上的 registry 视野并不总是公共 registry——npm 缓存过期（`prefer-offline`）、镜像同步滞后、企业代理都可能让一个已发布版本在本机“不存在”，`pi install` 会直接以 `ETARGET` 失败。所以安装某个插件时，失败会先按 registry 复核一次（`npm view --prefer-online`，顺带刷新本机缓存）并重试原版本；若本机 registry 确实看不到该版本，才退到同一条 minor 线里可用的最高版本，并在安装报告里写明替换原因。registry 完全不可用时不静默换版本，直接报错。
+钉死有代价：某台机器上的 registry 视野并不总是公共 registry——npm 缓存过期、镜像同步滞后、企业代理、本机代理进程没起来，都会让一个已发布版本在本机“不存在”（`ETARGET`）或直接 `ECONNREFUSED`。安装器按「原生安装 → 定位环境 → 最小重试/回退」处理：
+
+- 先照旧 `pi install`；失败后只做必要的探测：查 registry 是否真的没有这个版本（查询走临时缓存目录，因为网络不可达时 npm 在 `--prefer-online` 下仍会拿本机缓存作答）；同时检查 npm 的 `proxy`/`https-proxy`（含代理类环境变量）端口是否真的在听；
+- 代理端口连不上时，重试改用直连（子进程里以 `npm_config_proxy=null` 关掉代理并清掉代理环境变量），并在报告里写明“代理 X 连不上，已改直连”——原版本能装就直接装，不再降版；
+- registry 确实看不到该版本时，才退到同一条 minor 线里可用的最高版本，并写明替换原因；
+- registry 完全不可达时不静默换版本，报原始错误并附上 `registry=` / `proxy=` 诊断。
 
 ### 扩展适配
 
@@ -194,7 +199,7 @@ npx pitayax update -p pi --clean
 
 **已退役的 Intel Mac onnxruntime 降版** —— 旧版安装器在 `darwin/x64` 上往 `~/.pi/agent/npm/package.json` 写入 `@huggingface/transformers → onnxruntime-node@1.21.0` 的 overrides，因为 1.22 之后的 `onnxruntime-node` 只带 `darwin/arm64` 二进制，没有 `darwin/x64`。`@cortexkit/pi-magic-context@0.42` 起不再依赖 `@huggingface/transformers`，改用 `onnxruntime-web`——它的 `onnxruntime-node` 是可选依赖，加载不到时回退到 WASM（上游自带这条检测）。于是这个 overrides 键成了死配置：留着不生效，但上游哪天重新引入 `transformers`，它会把 `onnxruntime-node` 悄悄压回 1.21.0。`init`/`update` 会清掉它，`doctor` 也会报出来。
 
-对于 Windows 的 hook，安装器不依赖 Unix 可执行权限，并使用 `python`/`python3` 和 npm 的 `.cmd` shim 自动解析。走 shell 的命令行（需要 `.cmd` shim 的 Windows 场景）会自行给含空格的参数加引号，因此 `C:\Users\John Smith\...` 这类带空格的用户目录不会把命令拼坏。
+对于 Windows 的 hook，安装器不依赖 Unix 可执行权限，并使用 `python`/`python3` 和 npm 的 `.cmd` shim 自动解析。走 shell 的命令行（需要 `.cmd` shim 的 Windows 场景）会自行给含空格的参数加引号，因此 `C:\Users\John Smith\...` 这类带空格的用户目录不会把命令拼坏。Windows 上更新前建议先关掉 Pi 会话：npm 替换 `node_modules` 时旧文件被占用会报 `EPERM ... rmdir` 清理警告。
 
 ### 模型配置
 

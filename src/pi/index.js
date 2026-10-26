@@ -1,24 +1,24 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { installCommonPitayaFiles, installManagedBlock, installSelectedSkills } from '../shared.js';
-import { readTextIfExists } from '../../lib/files.js';
-import { retireMcp, retireMcpConfig } from '../../lib/retire.js';
-import { readJsonObject, writeJsonObject } from '../../lib/json.js';
+import { installManagedBlock, readTextIfExists } from '../lib/files.js';
+import { retireMcp, retireMcpConfig } from '../lib/retire.js';
+import { readJsonObject, writeJsonObject } from '../lib/json.js';
 import {
+  PI_CLI,
   PI_RETIRED_PACKAGES,
   defaultPiPluginIds,
-  isPluginInstalled,
+  detectExtras,
+  installedPluginVersion,
   packageVersionFromSource,
+  pinSettingsSources,
   readRegisteredPackageNames,
   resolvePiPlugins
 } from './catalog.js';
 import { applyRepairs, pinExactVersions } from './repairs.js';
 import { installPinnedPlugin, directEnv, unreachableProxies } from './registry.js';
 import { piAgentDir, piNpmDir, piSettingsPath } from './paths.js';
-import { runCommand } from '../../lib/runtime.js';
-
-// 钉死版本：pi update 会跳过 pinned npm 源，上游变动不会静默冲掉 repairs 里的补丁。
-const PI_CLI = '@earendil-works/pi-coding-agent@0.87.1';
+import { runCommand, tryCommand } from '../lib/runtime.js';
+import { choose } from '../tui/index.js';
 
 const APPEND_BLOCK_START = '<!-- PITAYA:START -->';
 const APPEND_BLOCK_END = '<!-- PITAYA:END -->';
@@ -32,24 +32,14 @@ const SETTINGS_DEFAULTS = {
   retry: { enabled: true, maxRetries: 10, baseDelayMs: 2000 }
 };
 
-// 已是目标版本就不重装，让 update -p pi 不做无谓的全局写入。
-function piCliVersionMatches() {
+// 已是目标版本就不重装，让 update 不做无谓的全局写入。
+export function piCliVersionMatches() {
   try {
     const result = runCommand('pi', ['--version'], { stdio: 'pipe', encoding: 'utf8' });
     return result.stdout?.trim() === packageVersionFromSource(PI_CLI);
   } catch {
     return false;
   }
-}
-
-export async function installPiProject(packageRoot, targetRoot, options) {
-  const results = [];
-  results.push(await installManagedBlock(packageRoot, targetRoot, 'templates/rules/codex/pitaya-block.md', 'AGENTS.md', '<!-- PITAYA:START -->', '<!-- PITAYA:END -->'));
-  results.push(...await installSelectedSkills(packageRoot, targetRoot, '.agents', options.skills));
-  results.push(...await installCommonPitayaFiles(packageRoot, targetRoot));
-
-  results.push(...await retireMcp(targetRoot, 'pi'));
-  return results;
 }
 
 // pi 按包名匹配 source，不带版本即可；它会同时删 settings 条目和 npm 依赖。
@@ -86,6 +76,46 @@ export async function uninstallPiPlugins(plugins, agentDir = piAgentDir()) {
   return results;
 }
 
+// 清单外扩展不是本安装器管理的包，默认绝不自动卸载；只在交互式终端里让用户选。
+// 非交互终端（CI、管道）保持保留，并在安装报告里写明。
+async function reviewExtras(extras) {
+  if (!(process.stdin.isTTY && process.stdout.isTTY)) {
+    return [{
+      changed: false,
+      action: 'skipped',
+      path: '清单外扩展',
+      reason: `${extras.map((extra) => extra.name).join(', ')}；非交互终端默认保留`
+    }];
+  }
+
+  process.stdout.write(`检测到 ${extras.length} 个不在安装清单中的扩展：\n`);
+  for (const extra of extras) {
+    process.stdout.write(`  - ${extra.name}${extra.version ? `@${extra.version}` : ''}\n`);
+  }
+  process.stdout.write('\n');
+
+  if ((await choose('是否卸载这些扩展？', ['卸载', '保留'])) !== 0) {
+    return [{ changed: false, action: 'skipped', path: '清单外扩展', reason: '用户选择保留' }];
+  }
+  return removeExtras(extras);
+}
+
+// npm 源按包名匹配（带版本也能匹配，但去掉版本更稳）；git/本地源按原样交给 pi remove。
+async function removeExtras(extras) {
+  const results = [];
+  for (const extra of extras) {
+    const source = !extra.source || extra.source.startsWith('npm:') ? `npm:${extra.name}` : extra.source;
+    const removal = tryCommand('pi', ['remove', source]);
+    results.push({
+      changed: removal.ok,
+      action: removal.ok ? 'removed' : 'failed',
+      path: extra.name,
+      reason: removal.ok ? '不在安装清单中' : removal.stderr || 'pi remove 失败'
+    });
+  }
+  return results;
+}
+
 // 代理端口连不上时，重新解析依赖树也走直连，否则这一步会再次 ECONNREFUSED。
 async function npmEnvForAgent() {
   const proxies = await unreachableProxies();
@@ -99,9 +129,16 @@ export async function installPi(packageRoot, options = {}) {
   const results = [];
 
   results.push(...await removeRetiredPackages(agentDir));
+  results.push(...await retireMcp(options.rootDir ?? process.cwd()));
   results.push(await retireMcpConfig(path.join(agentDir, 'mcp-adapter.json')));
   if (options.clean) {
     results.push(...await uninstallPiPlugins(plugins, agentDir));
+  }
+
+  // 清单外扩展是否卸载只能由用户决定；非交互终端一律保留。
+  const extras = await detectExtras(agentDir);
+  if (extras.length > 0) {
+    results.push(...await reviewExtras(extras));
   }
 
   if (piCliVersionMatches()) {
@@ -111,17 +148,47 @@ export async function installPi(packageRoot, options = {}) {
     results.push({ changed: true, action: 'installed', path: PI_CLI });
   }
 
+  const registered = await readRegisteredPackageNames(agentDir);
   const resolved = {};
-  for (const plugin of plugins) {
-    if (await isPluginInstalled(plugin, agentDir)) {
-      results.push({ changed: false, action: 'unchanged', path: plugin.spec });
-      continue;
-    }
+
+  const install = async (plugin) => {
     const installed = await installPinnedPlugin(plugin, {
       piInstall: (spec, env) => runCommand('pi', ['install', spec], { env }),
       npmDir: piNpmDir(agentDir)
     });
     resolved[plugin.name] = installed.version;
+    return installed;
+  };
+
+  for (const plugin of plugins) {
+    const pinned = packageVersionFromSource(plugin.spec);
+    const current = await installedPluginVersion(plugin.name, agentDir);
+    if (registered.has(plugin.name) && current === pinned) {
+      results.push({ changed: false, action: 'unchanged', path: plugin.spec });
+      continue;
+    }
+
+    if (registered.has(plugin.name)) {
+      // 版本冲突：pi install 是否替已登记的包换版取决于上游实现，装完复核；
+      // 仍不一致就先摘掉旧条目再装，保证落到钉死版本。
+      const first = await install(plugin);
+      let final = await installedPluginVersion(plugin.name, agentDir);
+      if (final !== first.version) {
+        // 条目损坏时 pi remove 也可能报错；失败就继续装，别让一次对齐拖垮整个安装。
+        tryCommand('pi', ['remove', `npm:${plugin.name}`]);
+        await install(plugin);
+        final = await installedPluginVersion(plugin.name, agentDir);
+      }
+      results.push({
+        changed: true,
+        action: final === first.version ? 'aligned' : 'skipped',
+        path: plugin.spec,
+        reason: `${current ?? '未安装'} → ${final ?? 'unknown'}${final === first.version ? '' : `，期望 ${first.version}`}`
+      });
+      continue;
+    }
+
+    const installed = await install(plugin);
     results.push({
       changed: true,
       action: 'installed',
@@ -134,6 +201,7 @@ export async function installPi(packageRoot, options = {}) {
   // 否则 npm install 可能把补过的文件还原。
   const treeResults = [
     await pinExactVersions(plugins, agentDir, resolved),
+    await pinSettingsSources(plugins, agentDir),
     ...(await applyRepairs(plugins, ctx, 'tree'))
   ];
   results.push(...treeResults);
@@ -184,8 +252,6 @@ export async function checkAppendSystem(packageRoot, agentDir = piAgentDir()) {
   return {
     name: 'Pi APPEND_SYSTEM block',
     ok: actual !== undefined && actual === expected,
-    hint: `Missing or outdated ${APPEND_BLOCK_START} block in ${targetPath}. Run pitaya update -p pi.`
+    hint: `Missing or outdated ${APPEND_BLOCK_START} block in ${targetPath}. Run pitaya update.`
   };
 }
-
-export { PI_CLI };

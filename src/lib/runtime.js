@@ -108,19 +108,3 @@ export function tryCommand(command, args, options = {}) {
     error: result.error
   };
 }
-
-export function pythonCommand(options) {
-  if (commandExists('python3', options)) {
-    return 'python3';
-  }
-  if (commandExists('python', options)) {
-    return 'python';
-  }
-  return undefined;
-}
-
-export function projectPythonCommand(relativeScript, options) {
-  const platform = options?.platform ?? process.platform;
-  const python = pythonCommand(options) ?? (platform === 'win32' ? 'python' : 'python3');
-  return `${python} -X utf8 ${relativeScript}`;
-}

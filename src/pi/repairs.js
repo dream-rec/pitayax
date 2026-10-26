@@ -1,15 +1,18 @@
 import path from 'node:path';
 import process from 'node:process';
+import { homedir } from 'node:os';
 import { readdir, readFile } from 'node:fs/promises';
-import { backupIfExists, pathExists, readTextIfExists, writeIfChanged, writeTextFile } from '../../lib/files.js';
-import { readJsonObject, writeJsonObject } from '../../lib/json.js';
+import { backupIfExists, pathExists, readTextIfExists, writeIfChanged, writeTextFile } from '../lib/files.js';
+import { readJsonObject, writeJsonObject } from '../lib/json.js';
 import { packageNameFromSource, packageVersionFromSource, settingsPackageSource } from './catalog.js';
 import { inspectMagicContext, magicContextSetupArgs } from './magic-context.js';
 import { footerIssues, mergeFooterConfig } from './footer.js';
 import { piExtensionsDir, piNpmDir, piPackageDir, piSettingsPath } from './paths.js';
-import { runCommand } from '../../lib/runtime.js';
+import { runCommand } from '../lib/runtime.js';
 
 const PROVIDER_MANAGER = '@arcaneorion/pi-provider-manager';
+const TOOL_BACKENDS = ['@cortexkit/aft-pi', 'pi-ssh'];
+const CONTEXT_BACKENDS = ['@cortexkit/pi-magic-context', 'billion-context'];
 
 // 旧版本为 Intel Mac 写过 @huggingface/transformers.onnxruntime-node=1.21.0。
 const RETIRED_OVERRIDE_PARENT = '@huggingface/transformers';
@@ -19,8 +22,42 @@ const RETIRED_OVERRIDE_PIN = '1.21.0';
 const NANO_CONTEXT_FOOTER = /ctx\.ui\.setFooter\(\(_tui,\s*theme,\s*footerData\)\s*=>\s*\(\{[\s\S]*?renderFooter\(pi,\s*ctx,\s*footerData,\s*width,\s*theme\),[\s\S]*?\}\)\);/;
 const NANO_CONTEXT_FOOTER_CLEANUP = /ctx\.ui\.setFooter\(undefined\);/;
 
+const TOOL_DISPLAY_SSH_MARK = '// pitaya:ssh-tool-ownership';
+// 上游文件是 CRLF，锤点时要容忍换行风格，否则永远匹配不上。
+const TOOL_DISPLAY_REGISTER_PATTERN = /(  const registerIfOwned = \(\r?\n    toolName: BuiltInToolOverrideName,\r?\n    register: \(\) => void,\r?\n  \): void => \{\r?\n)(    if \()/;
+
 async function readTemplate(packageRoot, fileName) {
   return readFile(path.join(packageRoot, 'templates', 'pi', fileName), 'utf8');
+}
+
+// 把指定包的 settings 条目改成 { source, extensions: [] }，走 pi 的空 pattern 分支，
+// 关掉包自身的扩展扫描；真正加载交给包外的 shim，npm install / pi update 冲不掉。
+async function pinExtensionsFilter(settingsPath, names) {
+  const settings = await readJsonObject(settingsPath, {});
+  const packages = Array.isArray(settings.packages) ? [...settings.packages] : [];
+  let changed = false;
+
+  for (const name of names) {
+    const index = packages.findIndex(
+      (entry) => packageNameFromSource(settingsPackageSource(entry)) === name
+    );
+    if (index === -1) continue;
+    const next = { source: settingsPackageSource(packages[index]), extensions: [] };
+    if (JSON.stringify(packages[index]) !== JSON.stringify(next)) {
+      packages[index] = next;
+      changed = true;
+    }
+  }
+
+  if (!changed) return false;
+  await writeJsonObject(settingsPath, { ...settings, packages });
+  return true;
+}
+
+function billionContextConfigPath(env = process.env) {
+  if (env.BILI_CONFIG_FILE) return env.BILI_CONFIG_FILE;
+  const base = env.XDG_CONFIG_HOME || path.join(homedir(), '.config');
+  return path.join(base, 'billion-context', 'billion-context.json');
 }
 
 // 用户自己在 /footer、tool-display 里调过的配置文件不覆盖；--clean 视为重置，
@@ -135,7 +172,7 @@ export const REPAIRS = {
       return {
         name: 'Pi footer conflict repair',
         ok: Boolean(source) && !source.includes('ctx.ui.setFooter('),
-        hint: `pi-nano-context still registers a competing footer. Run pitaya update -p pi to repair ${nanoPath}`
+        hint: `pi-nano-context still registers a competing footer. Run pitaya update to repair ${nanoPath}`
       };
     }
   },
@@ -183,14 +220,210 @@ export const REPAIRS = {
         {
           name: 'Pi provider-manager settings filter',
           ok: Boolean(entry) && typeof entry === 'object' && Array.isArray(entry.extensions) && entry.extensions.length === 0,
-          hint: `provider-manager must be pinned to { source, extensions: [] } in ${settingsPath}, otherwise pi loads its 6 submodules as separate extensions. Run pitaya update -p pi.`
+          hint: `provider-manager must be pinned to { source, extensions: [] } in ${settingsPath}, otherwise pi loads its 6 submodules as separate extensions. Run pitaya update.`
         },
         {
           name: 'Pi provider-manager single-entry shim',
           ok: (await readTextIfExists(shimPath)) === (await readTemplate(packageRoot, 'providers.ts')),
-          hint: `Missing or modified ${shimPath}. Run pitaya update -p pi.`
+          hint: `Missing or modified ${shimPath}. Run pitaya update.`
         }
       ];
+    }
+  },
+
+  // AFT 与 pi-ssh 都注册 read/write/edit/bash，pi 只保留先注册的那个。两者同时加载
+  // 会报冲突，pi-ssh 的远程实现也永远拿不到这四个工具。tool-backend.ts 按启动参数
+  // 单点加载其中一个，两个包的 settings 条目则关掉自身扫描。
+  'tool-backend': {
+    label: 'AFT / pi-ssh 工具后端切换',
+    phase: 'files',
+    async apply({ agentDir, packageRoot }) {
+      const results = [];
+      const settingsPath = piSettingsPath(agentDir);
+      const changed = await pinExtensionsFilter(settingsPath, TOOL_BACKENDS);
+      results.push({ changed, action: changed ? 'updated' : 'unchanged', path: settingsPath });
+
+      const shimPath = path.join(piExtensionsDir(agentDir), 'tool-backend.ts');
+      results.push(await writeIfChanged(shimPath, await readTemplate(packageRoot, 'tool-backend.ts')));
+      return results;
+    },
+    async check({ agentDir, packageRoot }) {
+      const settingsPath = piSettingsPath(agentDir);
+      const settings = await readJsonObject(settingsPath, {});
+      const packages = Array.isArray(settings.packages) ? settings.packages : [];
+      const shimPath = path.join(piExtensionsDir(agentDir), 'tool-backend.ts');
+
+      return [
+        {
+          name: 'Pi tool backend settings filter',
+          ok: TOOL_BACKENDS.every((name) => {
+            const entry = packages.find(
+              (item) => packageNameFromSource(settingsPackageSource(item)) === name
+            );
+            return !entry || (Array.isArray(entry.extensions) && entry.extensions.length === 0);
+          }),
+          hint: `AFT and pi-ssh must be pinned to { source, extensions: [] } in ${settingsPath}, otherwise both register read/write/edit/bash. Run pitaya update.`
+        },
+        {
+          name: 'Pi tool backend shim',
+          ok: (await readTextIfExists(shimPath)) === (await readTemplate(packageRoot, 'tool-backend.ts')),
+          hint: `Missing or modified ${shimPath}. Run pitaya update.`
+        }
+      ];
+    }
+  },
+
+  // magic-context 与 billion-context 都压缩同一段会话，同时加载会双重压缩。
+  // 两边都关掉包内扫描，由 context-backend.ts 按 --ssh 单点加载。
+  'context-backend': {
+    label: 'magic-context / billion-context 上下文后端切换',
+    phase: 'files',
+    async apply({ agentDir, packageRoot }) {
+      const results = [];
+      const settingsPath = piSettingsPath(agentDir);
+      const changed = await pinExtensionsFilter(settingsPath, CONTEXT_BACKENDS);
+      results.push({ changed, action: changed ? 'updated' : 'unchanged', path: settingsPath });
+
+      const shimPath = path.join(piExtensionsDir(agentDir), 'context-backend.ts');
+      results.push(await writeIfChanged(shimPath, await readTemplate(packageRoot, 'context-backend.ts')));
+      return results;
+    },
+    async check({ agentDir, packageRoot }) {
+      const settingsPath = piSettingsPath(agentDir);
+      const packages = (await readJsonObject(settingsPath, {})).packages;
+      const entries = Array.isArray(packages) ? packages : [];
+      const shimPath = path.join(piExtensionsDir(agentDir), 'context-backend.ts');
+
+      return [
+        {
+          name: 'Pi context backend settings filter',
+          ok: CONTEXT_BACKENDS.every((name) => {
+            const entry = entries.find(
+              (item) => packageNameFromSource(settingsPackageSource(item)) === name
+            );
+            return !entry || (Array.isArray(entry.extensions) && entry.extensions.length === 0);
+          }),
+          hint: `magic-context and billion-context must be pinned to { source, extensions: [] } in ${settingsPath}, otherwise both compressors load together. Run pitaya update.`
+        },
+        {
+          name: 'Pi context backend shim',
+          ok: (await readTextIfExists(shimPath)) === (await readTemplate(packageRoot, 'context-backend.ts')),
+          hint: `Missing or modified ${shimPath}. Run pitaya update.`
+        }
+      ];
+    }
+  },
+
+  // bili 默认每 3 分钟查 npm 自动升级，critical 公告即使关掉 autoUpdate 也会强制
+  // 换版，并且会通过 pi update --extension 改写 pi 的 npm 副本。要钉死版本，
+  // 这三个开关必须落盘；同时关掉内置的 3 个 delegate 子代理工具。
+  'billion-context-config': {
+    label: 'billion-context 钉版运行配置',
+    phase: 'files',
+    async apply() {
+      const configPath = billionContextConfigPath();
+      const existing = await readJsonObject(configPath, {});
+      const next = { ...existing, autoUpdate: false, advisoryCheck: false };
+      if (existing.pi !== false) {
+        const piSection = existing.pi && typeof existing.pi === 'object' && !Array.isArray(existing.pi)
+          ? existing.pi
+          : {};
+        next.pi = { ...piSection, subagents: false };
+      }
+
+      if (JSON.stringify(next) === JSON.stringify(existing)) {
+        return { changed: false, action: 'unchanged', path: configPath };
+      }
+      await writeJsonObject(configPath, next);
+      return {
+        changed: true,
+        action: 'updated',
+        path: configPath,
+        reason: '关闭自更新与强制公告，关闭内置子代理工具'
+      };
+    },
+    async check() {
+      const configPath = billionContextConfigPath();
+      const config = await readJsonObject(configPath, {});
+      const piSection = config.pi;
+      const subagentsOff =
+        piSection === false ||
+        piSection?.subagents === false ||
+        piSection?.subagents?.enabled === false;
+      const ok = config.autoUpdate === false && config.advisoryCheck === false && subagentsOff;
+      return {
+        name: 'Pi billion-context pinned config',
+        ok,
+        hint: ok
+          ? '自更新、强制公告与内置子代理均已关闭。'
+          : `Expected autoUpdate=false, advisoryCheck=false, pi.subagents=false in ${configPath}. Run pitaya update.`
+      };
+    }
+  },
+
+  // pi-ssh 只替换 read/write/edit/bash，grep/find/ls 在 ssh 会话里仍是本机工具。
+  'remote-tools': {
+    label: 'pi-ssh 远端 grep/find/ls',
+    phase: 'files',
+    async apply({ agentDir, packageRoot }) {
+      const target = path.join(piExtensionsDir(agentDir), 'remote-tools.ts');
+      return writeIfChanged(target, await readTemplate(packageRoot, 'remote-tools.ts'));
+    },
+    async check({ agentDir, packageRoot }) {
+      const target = path.join(piExtensionsDir(agentDir), 'remote-tools.ts');
+      return {
+        name: 'Pi remote grep/find/ls extension',
+        ok: (await readTextIfExists(target)) === (await readTemplate(packageRoot, 'remote-tools.ts')),
+        hint: `Missing or modified ${target}. Run pitaya update.`
+      };
+    }
+  },
+
+  // pi-tool-display 会自己注册 grep/find/ls 来接管渲染；ssh 会话里这三个工具
+  // 已由 remote-tools 注册，同一个名字不能注册两次。让它在 --ssh 下提前返回。
+  'tool-display-ssh': {
+    label: 'pi-tool-display 让出 ssh 会话的 grep/find/ls',
+    phase: 'files',
+    async apply({ agentDir }) {
+      const file = path.join(piPackageDir('pi-tool-display', agentDir), 'src', 'tool-overrides.ts');
+      if (!(await pathExists(file))) {
+        return { changed: false, action: 'skipped', path: file, reason: 'pi-tool-display 未安装' };
+      }
+      const source = await readFile(file, 'utf8');
+      if (source.includes(TOOL_DISPLAY_SSH_MARK)) {
+        return { changed: false, action: 'unchanged', path: file };
+      }
+      if (!TOOL_DISPLAY_REGISTER_PATTERN.test(source)) {
+        throw new Error(`无法安全接管 pi-tool-display 的 grep/find/ls，上游实现可能已变更: ${file}`);
+      }
+      const next = source.replace(TOOL_DISPLAY_REGISTER_PATTERN, (_match, head, ifLine) => {
+        const eol = head.includes('\r\n') ? '\r\n' : '\n';
+        const guard = [
+          '    // pitaya:ssh-tool-ownership —— ssh 会话由 remote-tools 接管 grep/find/ls',
+          '    if (',
+          '      (toolName === "grep" || toolName === "find" || toolName === "ls") &&',
+          '      process.argv.some((arg) => arg === "--ssh" || arg.startsWith("--ssh="))',
+          '    ) {',
+          '      return;',
+          '    }',
+          '',
+          ''
+        ].join(eol);
+        return `${head}${guard}${ifLine}`;
+      });
+      await writeTextFile(file, next);
+      return { changed: true, action: 'updated', path: file };
+    },
+    async check({ agentDir }) {
+      const file = path.join(piPackageDir('pi-tool-display', agentDir), 'src', 'tool-overrides.ts');
+      if (!(await pathExists(file))) {
+        return { name: 'Pi tool-display ssh ownership', ok: true, hint: 'pi-tool-display 未安装。' };
+      }
+      return {
+        name: 'Pi tool-display ssh ownership',
+        ok: (await readTextIfExists(file))?.includes(TOOL_DISPLAY_SSH_MARK) ?? false,
+        hint: `pi-tool-display still registers grep/find/ls in --ssh sessions and will conflict with remote-tools. Run pitaya update to repair ${file}`
+      };
     }
   },
 
@@ -205,7 +438,7 @@ export const REPAIRS = {
       return {
         name: 'Pi tool-display config',
         ok: await pathExists(configPath),
-        hint: `Missing ${configPath}. Run pitaya update -p pi.`
+        hint: `Missing ${configPath}. Run pitaya update.`
       };
     }
   },
@@ -223,7 +456,7 @@ export const REPAIRS = {
       return {
         name: 'Pi footer gradient overlay',
         ok: result.ok,
-        hint: `pi-footer is missing the gradient color patch${result.detail ? ` (${result.detail})` : ''}. Run pitaya update -p pi.`
+        hint: `pi-footer is missing the gradient color patch${result.detail ? ` (${result.detail})` : ''}. Run pitaya update.`
       };
     }
   },
@@ -253,14 +486,14 @@ export const REPAIRS = {
     async check({ agentDir, packageRoot }) {
       const configPath = path.join(piExtensionsDir(agentDir), 'pi-footer.json');
       if (!(await pathExists(configPath))) {
-        return { name: 'Pi footer config', ok: false, hint: `Missing ${configPath}. Run pitaya update -p pi.` };
+        return { name: 'Pi footer config', ok: false, hint: `Missing ${configPath}. Run pitaya update.` };
       }
       const template = JSON.parse(await readTemplate(packageRoot, 'pi-footer.json'));
       const issues = footerIssues(await readJsonObject(configPath, {}), template);
       return {
         name: 'Pi footer config',
         ok: issues.length === 0,
-        hint: issues.length ? `${issues.join('、')}。Run pitaya update -p pi.` : '执行模型、顾问行与 tok/s 已对齐模板。'
+        hint: issues.length ? `${issues.join('、')}。Run pitaya update.` : '执行模型、顾问行与 tok/s 已对齐模板。'
       };
     }
   },
@@ -277,7 +510,7 @@ export const REPAIRS = {
       return {
         name: 'Pi footer tok/s extension',
         ok: (await readTextIfExists(target))?.trimEnd() === (await readTemplate(packageRoot, 'tps.ts')).trimEnd(),
-        hint: `Missing or modified ${target}. Run pitaya update -p pi.`
+        hint: `Missing or modified ${target}. Run pitaya update.`
       };
     }
   },
@@ -324,7 +557,7 @@ export const REPAIRS = {
       return {
         name: 'Pi retired onnxruntime override',
         ok: !stale,
-        hint: stale ? `Stale overrides entry ${RETIRED_OVERRIDE_PARENT}.${RETIRED_OVERRIDE_KEY}=${RETIRED_OVERRIDE_PIN} in ${packagePath}; newer magic-context needs no such pin. Run pitaya update -p pi.` : 'No retired onnxruntime override.'
+        hint: stale ? `Stale overrides entry ${RETIRED_OVERRIDE_PARENT}.${RETIRED_OVERRIDE_KEY}=${RETIRED_OVERRIDE_PIN} in ${packagePath}; newer magic-context needs no such pin. Run pitaya update.` : 'No retired onnxruntime override.'
       };
     }
   },
@@ -359,7 +592,7 @@ export const REPAIRS = {
         ok: state.ok,
         hint: state.ok
           ? 'historian、dreamer、embedding 均已配置。'
-          : `${state.issues.join('、')}。Run pitaya update -p pi（交互式向导）或 npx ${magicContextSetupArgs(plugin.setup).join(' ')}。`
+          : `${state.issues.join('、')}。Run pitaya update（交互式向导）或 npx ${magicContextSetupArgs(plugin.setup).join(' ')}。`
       };
     }
   }
@@ -426,15 +659,20 @@ export async function pinExactVersions(plugins, agentDir, resolved = {}) {
 // npm 侧的范围也要是精确版本：pinExactVersions 每次都收紧，范围退回 caret 说明被 pi install 动过。
 export async function checkPinnedVersions(plugins, agentDir) {
   const range = (await readJsonObject(path.join(piNpmDir(agentDir), 'package.json'), {})).dependencies ?? {};
+  const packages = (await readJsonObject(piSettingsPath(agentDir), {})).packages;
+  const entries = Array.isArray(packages) ? packages : [];
   const checks = [];
   for (const plugin of plugins) {
     const expected = packageVersionFromSource(plugin.spec);
     const manifest = await readJsonObject(path.join(piPackageDir(plugin.name, agentDir), 'package.json'), {});
     const declared = range[plugin.name];
+    const settingsSource = settingsPackageSource(
+      entries.find((entry) => packageNameFromSource(settingsPackageSource(entry)) === plugin.name)
+    );
     checks.push({
       name: `Pi package ${plugin.name}`,
-      ok: manifest.version === expected && (declared === undefined || declared === expected),
-      hint: `Expected ${plugin.name}@${expected} with an exact npm range, found ${manifest.version ?? 'nothing'} / ${declared ?? 'undeclared'}. Run pitaya update -p pi.`
+      ok: manifest.version === expected && (declared === undefined || declared === expected) && settingsSource === plugin.spec,
+      hint: `Expected ${plugin.name}@${expected} with an exact npm range and settings source, found ${manifest.version ?? 'nothing'} / ${declared ?? 'undeclared'} / ${settingsSource ?? 'unregistered'}. Run pitaya update.`
     });
   }
   return checks;

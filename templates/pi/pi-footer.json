@@ -180,10 +180,12 @@
   },
   "extensionStatusRow": {
     "hiddenKeys": [
-      "magic-context"
+      "magic-context",
+      "pi-ssh"
     ],
     "knownKeys": [
-      "magic-context"
+      "magic-context",
+      "pi-ssh"
     ]
   }
 }

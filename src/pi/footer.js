@@ -1,4 +1,4 @@
-// pi-footer 状态栏布局由 Pitaya 托管：模板的三行结构（执行模型 / 顾问模型 / 目录与 tok/s）
+// pi-footer 状态栏布局由 pitayax 托管：模板的三行结构（执行模型 / 顾问模型 / 目录与 tok/s）
 // 必须落到用户已有配置上，否则升级只会保留旧的两行布局。这里只接管这 5 个 widget 及其
 // 图标/颜色选项，其余 widget、行和配置项一律保留用户原样。
 
@@ -82,6 +82,10 @@ export function footerIssues(config, template) {
   if (['hiddenKeys', 'knownKeys'].some((key) => config.extensionStatusRow?.[key]?.includes('mcp'))) {
     issues.push('旧 MCP 状态键残留');
   }
+  // pi-ssh 的远端路径现在由 cwd-basename 渲染到目录行，状态行只留 ponytail。
+  if (!config.extensionStatusRow?.hiddenKeys?.includes('pi-ssh')) {
+    issues.push('pi-ssh 状态仍占用扩展行');
+  }
   return issues;
 }
 
@@ -108,9 +112,10 @@ export function mergeFooterConfig(config, template) {
     applyOwnedOptions(widgets[index], expected[index]);
   }
 
+  const row = (next.extensionStatusRow ??= { hiddenKeys: [], knownKeys: [] });
   for (const key of ['hiddenKeys', 'knownKeys']) {
-    const keys = next.extensionStatusRow?.[key];
-    if (Array.isArray(keys)) next.extensionStatusRow[key] = keys.filter((value) => value !== 'mcp');
+    const keys = Array.isArray(row[key]) ? row[key].filter((value) => value !== 'mcp') : [];
+    row[key] = keys.includes('pi-ssh') ? keys : [...keys, 'pi-ssh'];
   }
   return next;
 }

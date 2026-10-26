@@ -2,7 +2,7 @@ import net from 'node:net';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { tryCommand } from '../../lib/runtime.js';
+import { tryCommand } from '../lib/runtime.js';
 
 // 钉死版本是默认路径，但机器上的 registry 视野并不总等于公共 registry：
 // npm 缓存过期（prefer-offline）、镜像同步滞后、企业代理、以及本机代理进程没起来，

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import process from 'node:process';
 import { homedir } from 'node:os';
-import { readTextIfExists } from '../../lib/files.js';
+import { readTextIfExists } from '../lib/files.js';
 
 // Magic Context 自己按「项目覆盖用户」读这两份配置；用户级目录跟随 XDG_CONFIG_HOME，
 // 与插件实现一致（XDG 只在绝对路径时生效）。

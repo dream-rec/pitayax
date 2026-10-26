@@ -2,12 +2,6 @@ node_modules/
 .env
 .env.*
 .DS_Store
-.cursor/
-.trellis/
-.claude/
-.opencode/
-.codex/
 .mcp.json
-opencode.json
 __pycache__/
 *.pyc

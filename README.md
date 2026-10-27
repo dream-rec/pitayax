@@ -137,7 +137,7 @@ npx pitayax init --skip-pi-plugins
 
 - **版本冲突**：与钉死版本不一致时自动对齐。装完复核包内 `package.json`，仍不一致就先 `pi remove` 再装，报告记为 `aligned` 并写出 `旧版本 → 新版本`；`settings.json` 的 source 也会收紧成精确版本。
 - **清单外扩展**：已登记但不在 `src/pi/catalog.js` 里的包。交互式终端会列出名称和版本，让你选「卸载 / 保留」；非交互终端一律保留并在报告里注明。
-- **已退役扩展**：`pi-cometix-footer`、`pi-btw`、`pi-advisor-flow`、`pi-mcp-adapter` 直接卸载；`.mcp.json` / `mcp-adapter.json` 里对应的退役 server 一并清掉，其它 MCP 条目不动。
+- **已退役扩展**：`pi-cometix-footer`、`pi-btw`、`pi-advisor-flow`、`pi-mcp-adapter` 直接卸载；`extensions/ssh-aft-compat.ts` 一并删除，它和 `tool-backend.ts` 会注册同一批工具；`.mcp.json` / `mcp-adapter.json` 里对应的退役 server 一并清掉，其它 MCP 条目不动。
 - **billion-context 钉版**：doctor 校验 `autoUpdate=false`、`advisoryCheck=false`、`pi.subagents=false`，任一被改回去都会报出来。
 
 ---

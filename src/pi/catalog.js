@@ -126,6 +126,10 @@ export const PI_PLUGIN_CATALOG = [
 // 已退役扩展在 init/update 时卸载，doctor 会报告残留。
 export const PI_RETIRED_PACKAGES = ['pi-cometix-footer', 'pi-btw', 'pi-advisor-flow', 'pi-mcp-adapter'];
 
+// 旧安装器直接写在 extensions/ 下的 shim。pi 会加载该目录里的每个文件，
+// ssh-aft-compat.ts 与 tool-backend.ts 注册同一批工具，必须删掉。
+export const PI_RETIRED_EXTENSION_FILES = ['ssh-aft-compat.ts'];
+
 export function defaultPiPluginIds() {
   return PI_PLUGIN_CATALOG.filter((item) => item.default).map((item) => item.id);
 }

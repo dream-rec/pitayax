@@ -1,10 +1,11 @@
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
-import { installManagedBlock, readTextIfExists } from '../lib/files.js';
+import { installManagedBlock, pathExists, readTextIfExists } from '../lib/files.js';
 import { retireMcp, retireMcpConfig } from '../lib/retire.js';
 import { readJsonObject, writeJsonObject } from '../lib/json.js';
 import {
   PI_CLI,
+  PI_RETIRED_EXTENSION_FILES,
   PI_RETIRED_PACKAGES,
   defaultPiPluginIds,
   detectExtras,
@@ -16,7 +17,7 @@ import {
 } from './catalog.js';
 import { applyRepairs, pinExactVersions } from './repairs.js';
 import { installPinnedPlugin, directEnv, unreachableProxies } from './registry.js';
-import { piAgentDir, piNpmDir, piSettingsPath } from './paths.js';
+import { piAgentDir, piExtensionsDir, piNpmDir, piSettingsPath } from './paths.js';
 import { runCommand, tryCommand } from '../lib/runtime.js';
 import { choose } from '../tui/index.js';
 
@@ -59,6 +60,31 @@ function removeRegistered(names, registered, reason) {
 export async function removeRetiredPackages(agentDir = piAgentDir()) {
   const registered = await readRegisteredPackageNames(agentDir);
   return removeRegistered(PI_RETIRED_PACKAGES, registered, '已退役');
+}
+
+export async function retiredExtensionPaths(agentDir = piAgentDir()) {
+  const dir = piExtensionsDir(agentDir);
+  const present = [];
+  for (const name of PI_RETIRED_EXTENSION_FILES) {
+    const filePath = path.join(dir, name);
+    if (await pathExists(filePath)) present.push(filePath);
+  }
+  return present;
+}
+
+// 旧 shim 和 tool-backend.ts 会被 pi 一起加载，重复注册 bash/read/write 等工具。
+export async function removeRetiredExtensionFiles(agentDir = piAgentDir()) {
+  const results = [];
+  for (const filePath of await retiredExtensionPaths(agentDir)) {
+    await unlink(filePath);
+    results.push({
+      changed: true,
+      action: 'removed',
+      path: filePath,
+      reason: '已退役，与 tool-backend 重复注册工具'
+    });
+  }
+  return results;
 }
 
 // --clean：先 pi remove 再重装，用来清掉漂移的依赖树和被 pi update 冲掉的补丁。
@@ -129,6 +155,7 @@ export async function installPi(packageRoot, options = {}) {
   const results = [];
 
   results.push(...await removeRetiredPackages(agentDir));
+  results.push(...await removeRetiredExtensionFiles(agentDir));
   results.push(...await retireMcp(options.rootDir ?? process.cwd()));
   results.push(await retireMcpConfig(path.join(agentDir, 'mcp-adapter.json')));
   if (options.clean) {

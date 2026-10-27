@@ -11,7 +11,7 @@ import {
 import { checkPinnedVersions, checkRepairs } from '../pi/repairs.js';
 import { piAgentDir, piSettingsPath } from '../pi/paths.js';
 import { PI_CLI } from '../pi/catalog.js';
-import { checkAppendSystem, piCliVersionMatches } from '../pi/index.js';
+import { checkAppendSystem, piCliVersionMatches, retiredExtensionPaths } from '../pi/index.js';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -46,6 +46,15 @@ export async function runDoctor(rootDir) {
     name: 'Pi retired packages',
     ok: retired.length === 0,
     hint: retired.length === 0 ? 'No retired Pi packages.' : `${retired.join(', ')} still registered in ${piSettingsPath(agentDir)}. Run pitaya update to remove.`
+  });
+
+  const retiredExtensions = await retiredExtensionPaths(agentDir);
+  checks.push({
+    name: 'Pi retired extension shims',
+    ok: retiredExtensions.length === 0,
+    hint: retiredExtensions.length === 0
+      ? 'No retired extension shims.'
+      : `${retiredExtensions.join(', ')} still loads beside tool-backend and registers the same tools. Run pitaya update.`
   });
 
   checks.push(await checkRetiredMcp(rootDir));

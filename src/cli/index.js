@@ -3,6 +3,7 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { formatRelative } from "../lib/files.js";
+import { formatBanner } from "../tui/banner.js";
 import { runDoctor, formatDoctorReport } from "../doctor/index.js";
 import { runInteractive } from "../tui/index.js";
 import { installPi, ensurePiConfig } from "../pi/index.js";
@@ -58,7 +59,7 @@ async function init(rootDir, options) {
   const piPluginIds = options.piPluginIds ?? defaultPiPluginIds();
   assertKnownPiPlugins(piPluginIds);
   const piPlugins = resolvePiPlugins(piPluginIds);
-  writeOutput(formatBanner());
+  writeOutput(formatBanner(packageVersion).join("\n"));
   const results = [
     ...(await installPi(packageRoot, { ...options, piPlugins, rootDir })),
     ...(await ensurePiConfig(packageRoot)),
@@ -134,62 +135,6 @@ function formatInstallReport(rootDir, results) {
 
 function writeOutput(message) {
   process.stdout.write(`${message}\n`);
-}
-
-const PITAYA_ICON = [
-  "    ▄▄██████▄▄    ",
-  " ◤▄██░░░░•░░░██▄◥ ",
-  " ▐██░░•░░░░•░░██▌ ",
-  " ▐██░░░░•░░░•░██▌ ",
-  " ◣▀██░░•░░░░░██▀◢ ",
-  "    ▀▀██████▀▀    ",
-];
-
-const ICON_TONES = {
-  "█": "skin", "▄": "skin", "▀": "skin", "▐": "skin", "▌": "skin",
-  "◤": "fin", "◥": "fin", "◣": "fin", "◢": "fin",
-  "░": "flesh", "•": "seed",
-};
-
-const BANNER_PALETTES = {
-  256: { skin: "38;5;198", fin: "38;5;76", flesh: "48;5;255", seed: "38;5;235;48;5;255" },
-  16: { skin: "95", fin: "92", flesh: "107", seed: "30;107" },
-};
-
-function bannerPalette() {
-  if (!process.stdout.isTTY || process.env.NO_COLOR) return undefined;
-  const deep = typeof process.stdout.hasColors === "function" && process.stdout.hasColors(256);
-  return BANNER_PALETTES[deep ? 256 : 16];
-}
-
-function paint(text, code) {
-  return `\u001B[${code}m${text}\u001B[0m`;
-}
-
-function paintIconRow(row, palette) {
-  if (!palette) return row;
-  const segments = [];
-  for (const char of row) {
-    const tone = ICON_TONES[char];
-    const text = tone === "flesh" ? " " : char;
-    const last = segments[segments.length - 1];
-    if (last && last.tone === tone) last.text += text;
-    else segments.push({ tone, text });
-  }
-  return segments
-    .map(({ tone, text }) => (tone ? paint(text, palette[tone]) : text))
-    .join("");
-}
-
-function formatBanner() {
-  const palette = bannerPalette();
-  const width = [...PITAYA_ICON[0]].length;
-  const version = `v${packageVersion}`;
-  const indent = " ".repeat(Math.max(0, Math.floor((width - version.length) / 2)));
-  return [
-    ...PITAYA_ICON.map((row) => paintIconRow(row, palette)),
-    `${indent}${palette ? paint(version, "2") : version}`,
-  ].join("\n");
 }
 
 function helpText() {

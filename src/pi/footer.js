@@ -12,6 +12,9 @@ const OWNED_WIDGETS = [
 
 const OWNED_OPTIONS = ['icon', 'fg', 'raw', 'hideWhenEmpty'];
 
+const HIDDEN_STATUS_KEYS = ['pi-ssh'];
+const RETIRED_STATUS_KEYS = ['mcp', 'pitaya-remote'];
+
 function matches(entry, spec) {
   return entry?.type === spec.type && (spec.widgetId === undefined || entry.options?.widgetId === spec.widgetId);
 }
@@ -82,9 +85,12 @@ export function footerIssues(config, template) {
   if (['hiddenKeys', 'knownKeys'].some((key) => config.extensionStatusRow?.[key]?.includes('mcp'))) {
     issues.push('旧 MCP 状态键残留');
   }
-  // pi-ssh 的远端路径现在由 cwd-basename 渲染到目录行，状态行只留 ponytail。
-  if (!config.extensionStatusRow?.hiddenKeys?.includes('pi-ssh')) {
-    issues.push('pi-ssh 状态仍占用扩展行');
+  // pi-ssh 的远端路径现在由 cwd-basename 渲染到目录行，
+  // 状态行只留 ponytail。
+  for (const key of HIDDEN_STATUS_KEYS) {
+    if (!config.extensionStatusRow?.hiddenKeys?.includes(key)) {
+      issues.push(`${key} 状态仍占用扩展行`);
+    }
   }
   return issues;
 }
@@ -114,8 +120,13 @@ export function mergeFooterConfig(config, template) {
 
   const row = (next.extensionStatusRow ??= { hiddenKeys: [], knownKeys: [] });
   for (const key of ['hiddenKeys', 'knownKeys']) {
-    const keys = Array.isArray(row[key]) ? row[key].filter((value) => value !== 'mcp') : [];
-    row[key] = keys.includes('pi-ssh') ? keys : [...keys, 'pi-ssh'];
+    const keys = Array.isArray(row[key])
+      ? row[key].filter((value) => !RETIRED_STATUS_KEYS.includes(value))
+      : [];
+    for (const statusKey of HIDDEN_STATUS_KEYS) {
+      if (!keys.includes(statusKey)) keys.push(statusKey);
+    }
+    row[key] = keys;
   }
   return next;
 }

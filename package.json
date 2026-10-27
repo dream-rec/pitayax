@@ -1,6 +1,6 @@
 {
   "name": "pitayax",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Personal Pi installer: pinned plugins, prompt preferences and patches.",
   "type": "module",
   "bin": {
@@ -12,7 +12,7 @@
     "templates"
   ],
   "scripts": {
-    "check": "node --check bin/pitaya.js && node --check src/cli/index.js && node --check src/doctor/index.js && node --check src/lib/files.js && node --check src/lib/json.js && node --check src/lib/retire.js && node --check src/lib/runtime.js && node --check src/pi/catalog.js && node --check src/pi/footer.js && node --check src/pi/index.js && node --check src/pi/magic-context.js && node --check src/pi/paths.js && node --check src/pi/registry.js && node --check src/pi/repairs.js && node --check src/tui/index.js"
+    "check": "node --check bin/pitaya.js && node --check src/cli/index.js && node --check src/doctor/index.js && node --check src/lib/files.js && node --check src/lib/json.js && node --check src/lib/retire.js && node --check src/lib/runtime.js && node --check src/pi/catalog.js && node --check src/pi/footer.js && node --check src/pi/index.js && node --check src/pi/magic-context.js && node --check src/pi/paths.js && node --check src/pi/registry.js && node --check src/pi/repairs.js && node --check src/tui/index.js && node --check src/tui/theme.js && node --check src/tui/banner.js"
   },
   "keywords": [
     "pitaya",

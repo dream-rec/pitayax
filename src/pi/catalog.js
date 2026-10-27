@@ -15,7 +15,7 @@ export const PI_PLUGIN_CATALOG = [
     label: 'pi-tool-display (辅助显示层)',
     description: '渲染 find/ls、用户消息框和 thinking 标签；read/write/edit/grep/bash 交给 AFT。',
     default: true,
-    repairs: ['tool-display-config']
+    repairs: ['tool-display-config', 'tool-display-ssh']
   },
   {
     id: 'nano-context',
@@ -77,9 +77,9 @@ export const PI_PLUGIN_CATALOG = [
     name: 'pi-ssh',
     spec: 'npm:pi-ssh@0.4.0',
     label: 'pi-ssh (SSH 远程工具)',
-    description: '带 --ssh 启动时把 read/write/edit/bash/grep/find/ls 都送到远端，本地会话仍走 AFT。',
+    description: '带 --ssh 启动时 bash 在远端执行；本机文件工具被禁用，所有文件操作统一走 bash。本地会话仍走 AFT。',
     default: true,
-    repairs: ['tool-backend', 'remote-tools', 'tool-display-ssh']
+    repairs: ['tool-backend']
   },
   {
     id: 'plugin-manager',
@@ -119,7 +119,8 @@ export const PI_PLUGIN_CATALOG = [
     spec: 'npm:@dietrichgebert/ponytail@5.3.2',
     label: '@dietrichgebert/ponytail (最小改动模式)',
     description: '自带 ponytail 系列 skill，要求用最小改动解决问题并按级别约束输出。',
-    default: true
+    default: true,
+    repairs: ['ponytail-status']
   }
 ];
 
@@ -128,7 +129,7 @@ export const PI_RETIRED_PACKAGES = ['pi-cometix-footer', 'pi-btw', 'pi-advisor-f
 
 // 旧安装器直接写在 extensions/ 下的 shim。pi 会加载该目录里的每个文件，
 // ssh-aft-compat.ts 与 tool-backend.ts 注册同一批工具，必须删掉。
-export const PI_RETIRED_EXTENSION_FILES = ['ssh-aft-compat.ts'];
+export const PI_RETIRED_EXTENSION_FILES = ['ssh-aft-compat.ts', 'remote-tools.ts'];
 
 export function defaultPiPluginIds() {
   return PI_PLUGIN_CATALOG.filter((item) => item.default).map((item) => item.id);

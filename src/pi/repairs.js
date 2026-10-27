@@ -23,8 +23,24 @@ const NANO_CONTEXT_FOOTER = /ctx\.ui\.setFooter\(\(_tui,\s*theme,\s*footerData\)
 const NANO_CONTEXT_FOOTER_CLEANUP = /ctx\.ui\.setFooter\(undefined\);/;
 
 const TOOL_DISPLAY_SSH_MARK = '// pitaya:ssh-tool-ownership';
-// 上游文件是 CRLF，锤点时要容忍换行风格，否则永远匹配不上。
-const TOOL_DISPLAY_REGISTER_PATTERN = /(  const registerIfOwned = \(\r?\n    toolName: BuiltInToolOverrideName,\r?\n    register: \(\) => void,\r?\n  \): void => \{\r?\n)(    if \()/;
+const TOOL_DISPLAY_SSH_BLOCK =
+  /[ \t]*\/\/ pitaya:ssh-tool-ownership[^\n]*\r?\n[ \t]*if \(\r?\n[ \t]*\(toolName === "grep" \|\| toolName === "find" \|\| toolName === "ls"\) &&\r?\n[ \t]*process\.argv\.some\(\(arg\) => arg === "--ssh" \|\| arg\.startsWith\("--ssh="\)\)\r?\n[ \t]*\) \{\r?\n[ \t]*return;\r?\n[ \t]*\}\r?\n/;
+
+const PONYTAIL_STATUS_MARK = '// ponytail: nerd font icons';
+const PONYTAIL_STATUS_PATTERN =
+  /([ \t]*)const levelIcons = \{ lite: "🌿", full: "⚡", ultra: "🔥" \};\r?\n\s*const icon = levelIcons\[currentMode\] \|\| "";\r?\n\s*const label = currentMode\.toUpperCase\(\);\r?\n\s*const indicator = isActive \? theme\.fg\("accent", "●"\) : theme\.fg\("dim", "○"\);\r?\n\s*c\.ui\.setStatus\("ponytail", indicator \+ " 🐴 " \+ theme\.fg\("muted", "ponytail: "\) \+ theme\.fg\("text", icon \+ " " \+ label\)\);/;
+
+function ponytailStatusBlock(eol, indent) {
+  return [
+    `${indent}// ponytail: nerd font icons, lowercase label, and the active indicator moved to the right`,
+    `${indent}const levelIcons = { lite: "󰛓", full: "󰶳", ultra: "󰈸" };`,
+    `${indent}const levelColors = { lite: "success", full: "warning", ultra: "error" };`,
+    `${indent}const icon = levelIcons[currentMode] || "";`,
+    `${indent}const color = levelColors[currentMode] || "text";`,
+    `${indent}const indicator = isActive ? theme.fg("accent", "●") : theme.fg("dim", "○");`,
+    `${indent}c.ui.setStatus("ponytail", theme.fg("thinkingXhigh", "󱖿") + " " + theme.fg("muted", "ponytail: ") + theme.fg(color, icon + " " + currentMode) + " " + indicator);`
+  ].join(eol);
+}
 
 async function readTemplate(packageRoot, fileName) {
   return readFile(path.join(packageRoot, 'templates', 'pi', fileName), 'utf8');
@@ -361,28 +377,10 @@ export const REPAIRS = {
     }
   },
 
-  // pi-ssh 只替换 read/write/edit/bash，grep/find/ls 在 ssh 会话里仍是本机工具。
-  'remote-tools': {
-    label: 'pi-ssh 远端 grep/find/ls',
-    phase: 'files',
-    async apply({ agentDir, packageRoot }) {
-      const target = path.join(piExtensionsDir(agentDir), 'remote-tools.ts');
-      return writeIfChanged(target, await readTemplate(packageRoot, 'remote-tools.ts'));
-    },
-    async check({ agentDir, packageRoot }) {
-      const target = path.join(piExtensionsDir(agentDir), 'remote-tools.ts');
-      return {
-        name: 'Pi remote grep/find/ls extension',
-        ok: (await readTextIfExists(target)) === (await readTemplate(packageRoot, 'remote-tools.ts')),
-        hint: `Missing or modified ${target}. Run pitaya update.`
-      };
-    }
-  },
-
-  // pi-tool-display 会自己注册 grep/find/ls 来接管渲染；ssh 会话里这三个工具
-  // 已由 remote-tools 注册，同一个名字不能注册两次。让它在 --ssh 下提前返回。
+  // 0.8.2 曾在 pi-tool-display 里加过 SSH 让出 grep/find/ls 的补丁；现在改成
+  // SSH 会话只保留 bash，这段补丁必须清掉，否则工具展示层和运行态不一致。
   'tool-display-ssh': {
-    label: 'pi-tool-display 让出 ssh 会话的 grep/find/ls',
+    label: '移除 pi-tool-display 的旧 SSH 让出补丁',
     phase: 'files',
     async apply({ agentDir }) {
       const file = path.join(piPackageDir('pi-tool-display', agentDir), 'src', 'tool-overrides.ts');
@@ -390,39 +388,67 @@ export const REPAIRS = {
         return { changed: false, action: 'skipped', path: file, reason: 'pi-tool-display 未安装' };
       }
       const source = await readFile(file, 'utf8');
-      if (source.includes(TOOL_DISPLAY_SSH_MARK)) {
+      if (!source.includes(TOOL_DISPLAY_SSH_MARK)) {
         return { changed: false, action: 'unchanged', path: file };
       }
-      if (!TOOL_DISPLAY_REGISTER_PATTERN.test(source)) {
-        throw new Error(`无法安全接管 pi-tool-display 的 grep/find/ls，上游实现可能已变更: ${file}`);
+      if (!TOOL_DISPLAY_SSH_BLOCK.test(source)) {
+        throw new Error(`无法安全清理 pi-tool-display 的旧 SSH 补丁，上游实现可能已变更: ${file}`);
       }
-      const next = source.replace(TOOL_DISPLAY_REGISTER_PATTERN, (_match, head, ifLine) => {
-        const eol = head.includes('\r\n') ? '\r\n' : '\n';
-        const guard = [
-          '    // pitaya:ssh-tool-ownership —— ssh 会话由 remote-tools 接管 grep/find/ls',
-          '    if (',
-          '      (toolName === "grep" || toolName === "find" || toolName === "ls") &&',
-          '      process.argv.some((arg) => arg === "--ssh" || arg.startsWith("--ssh="))',
-          '    ) {',
-          '      return;',
-          '    }',
-          '',
-          ''
-        ].join(eol);
-        return `${head}${guard}${ifLine}`;
-      });
-      await writeTextFile(file, next);
-      return { changed: true, action: 'updated', path: file };
+      await writeTextFile(file, source.replace(TOOL_DISPLAY_SSH_BLOCK, ''));
+      return { changed: true, action: 'removed', path: file, reason: 'SSH 会话现在只保留 bash' };
     },
     async check({ agentDir }) {
       const file = path.join(piPackageDir('pi-tool-display', agentDir), 'src', 'tool-overrides.ts');
       if (!(await pathExists(file))) {
-        return { name: 'Pi tool-display ssh ownership', ok: true, hint: 'pi-tool-display 未安装。' };
+        return { name: 'Pi tool-display ssh patch removed', ok: true, hint: 'pi-tool-display 未安装。' };
       }
       return {
-        name: 'Pi tool-display ssh ownership',
-        ok: (await readTextIfExists(file))?.includes(TOOL_DISPLAY_SSH_MARK) ?? false,
-        hint: `pi-tool-display still registers grep/find/ls in --ssh sessions and will conflict with remote-tools. Run pitaya update to repair ${file}`
+        name: 'Pi tool-display ssh patch removed',
+        ok: !(await readTextIfExists(file))?.includes(TOOL_DISPLAY_SSH_MARK),
+        hint: `Stale SSH grep/find/ls ownership patch remains in ${file}. Run pitaya update.`
+      };
+    }
+  },
+
+  // ponytail 上游把状态做成 emoji + 大写（⚡ FULL），本机配置是 Nerd Font 小写。
+  // 不补这一层，Ubuntu 等新机器会显示成上游默认样式。
+  'ponytail-status': {
+    label: 'ponytail 状态栏字形与大小写',
+    phase: 'files',
+    async apply({ agentDir }) {
+      const file = path.join(
+        piPackageDir('@dietrichgebert/ponytail', agentDir),
+        'pi-extension',
+        'index.js'
+      );
+      if (!(await pathExists(file))) {
+        return { changed: false, action: 'skipped', path: file, reason: 'ponytail 未安装' };
+      }
+      const source = await readFile(file, 'utf8');
+      if (source.includes(PONYTAIL_STATUS_MARK)) {
+        return { changed: false, action: 'unchanged', path: file };
+      }
+      const match = PONYTAIL_STATUS_PATTERN.exec(source);
+      if (!match) {
+        throw new Error(`无法安全接管 ponytail 状态栏，上游实现可能已变更: ${file}`);
+      }
+      const eol = match[0].includes('\r\n') ? '\r\n' : '\n';
+      await writeTextFile(file, source.replace(PONYTAIL_STATUS_PATTERN, (_match, indent) => ponytailStatusBlock(eol, indent)));
+      return { changed: true, action: 'updated', path: file };
+    },
+    async check({ agentDir }) {
+      const file = path.join(
+        piPackageDir('@dietrichgebert/ponytail', agentDir),
+        'pi-extension',
+        'index.js'
+      );
+      if (!(await pathExists(file))) {
+        return { name: 'Pi ponytail status style', ok: true, hint: 'ponytail 未安装。' };
+      }
+      return {
+        name: 'Pi ponytail status style',
+        ok: (await readTextIfExists(file))?.includes(PONYTAIL_STATUS_MARK) ?? false,
+        hint: `ponytail still renders the upstream emoji/uppercase status. Run pitaya update to repair ${file}`
       };
     }
   },

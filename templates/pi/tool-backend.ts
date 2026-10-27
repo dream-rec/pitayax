@@ -1,9 +1,9 @@
 /**
  * 工具后端切换 —— 由 pitaya 安装，请勿手工改动。
  *
- * AFT 与 pi-ssh 都注册 read/write/edit/bash，pi 只保留先注册的那个：
- * 两者同时加载既报冲突，pi-ssh 的远程实现也永远拿不到这四个工具。
- * 因此带 --ssh 启动时只加载 pi-ssh（原生四工具走远程），否则只加载 AFT。
+ * 本地会话只加载 AFT。`--ssh` 会话只加载 pi-ssh，并且只保留 bash 作为文件工具：
+ * pi 的 read/write/edit/ls/find/grep 都在本机执行，和远端工作区是两套路径，
+ * 混用会读写错机器。pi-ssh 的 bash 在远端，所有文件操作统一走它。
  *
  * 配套修复在 settings.json：两个包的条目都写成 { source, extensions: [] }，
  * 关掉包自身的加载；真正的加载由本文件按启动参数单点完成。
@@ -14,9 +14,26 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 const SSH_BACKEND = "../npm/node_modules/pi-ssh/index.ts";
 const LOCAL_BACKEND = "../npm/node_modules/@cortexkit/aft-pi/dist/index.js";
 
+const LOCAL_FILE_TOOLS = new Set(["read", "write", "edit", "ls", "find", "grep", "powershell"]);
+const SSH_GUIDELINE =
+  "SSH workspace: use the bash tool for every file operation (read, write, edit, search, list). " +
+  "It runs on the remote host. The local read/write/edit/ls/find/grep tools are disabled in this " +
+  "session because they would touch the local machine instead of the remote workspace.";
+
 const sshMode = process.argv.some((arg) => arg === "--ssh" || arg.startsWith("--ssh="));
 
 export default async function toolBackend(pi: ExtensionAPI): Promise<void> {
   const { default: backend } = await import(sshMode ? SSH_BACKEND : LOCAL_BACKEND);
   await backend(pi);
+
+  if (!sshMode) return;
+
+  pi.on("session_start", () => {
+    pi.setActiveTools(pi.getActiveTools().filter((name) => !LOCAL_FILE_TOOLS.has(name)));
+  });
+
+  pi.on("before_agent_start", (event) => {
+    const guidelines = event.systemPromptOptions.promptGuidelines;
+    if (!guidelines.includes(SSH_GUIDELINE)) guidelines.push(SSH_GUIDELINE);
+  });
 }

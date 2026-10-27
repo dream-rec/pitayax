@@ -27,10 +27,9 @@ npm install -g pitayax
 
 ### 交互式
 
-1. 选择 Pi 插件（默认全选）
-2. 确认安装
+进入全屏 TUI：`STEP 01` 选择模块，`STEP 02` 确认执行。
 
-`↑/↓` 移动，`space` 切换，`a` 全选/全不选，`enter` 确认，`ctrl+c` 退出。
+`↑/↓` 或 `j/k` 移动，`space` 切换，`a` 全选/全不选，`enter` 进入下一步，`q` / `ctrl+c` 退出。
 
 CI、管道等非交互环境改用：
 
@@ -58,7 +57,7 @@ npx pitayax init --skip-pi-plugins
 | 启动方式 | 上下文 | 工具 |
 | --- | --- | --- |
 | `pi` | magic-context | AFT |
-| `pi --ssh user@host[:path]` | billion-context | pi-ssh：read/write/edit/bash/grep/find/ls 全部在远端 |
+| `pi --ssh user@host[:path]` | billion-context | pi-ssh：只有 bash，在远端执行；本机文件工具禁用 |
 
 两套上下文压缩器互斥，由 `extensions/context-backend.ts` 按启动参数单点加载；工具后端同理由 `extensions/tool-backend.ts` 切换。
 
@@ -79,7 +78,7 @@ npx pitayax init --skip-pi-plugins
 | `@cortexkit/pi-magic-context` | 本地会话的语义上下文检索 |
 | `billion-context` | `--ssh` 会话的本地代理上下文压缩（与 magic-context 互斥） |
 | `@cortexkit/aft-pi` | 本地代码工具后端：索引搜索、结构导航、诊断 |
-| `pi-ssh` | `--ssh` 时 read/write/edit/bash/grep/find/ls 全部走远端 |
+| `pi-ssh` | `--ssh` 时 bash 在远端执行；本机文件工具禁用，所有文件操作走 bash |
 | `pi-plugin-manager` | `/plugins` 插件管理面板 |
 | `pi-web-access` | 联网检索与网页正文提取 |
 | `@juicesharp/rpiv-advisor` | 顾问模型第二意见 |
@@ -99,7 +98,6 @@ npx pitayax init --skip-pi-plugins
 | `extensions/providers.ts` | provider-manager 单入口 |
 | `extensions/tool-backend.ts` | AFT / pi-ssh 按启动参数二选一 |
 | `extensions/context-backend.ts` | magic-context / billion-context 按启动参数二选一 |
-| `extensions/remote-tools.ts` | `--ssh` 会话的远端 grep/find/ls |
 | `extensions/tps.ts` | 把 tok/s 送进 footer 事件槽 |
 | `extensions/pi-footer.json` | 状态栏三行布局 |
 | `extensions/pi-tool-display/config.json` | 工具显示配置 |
@@ -117,14 +115,13 @@ npx pitayax init --skip-pi-plugins
 | --- | --- |
 | `footer-gradient` | 给 pi-footer 加 `fg: "gradient"` 支持 |
 | `footer-config` | 三行状态栏，保留用户其它 widget；`--ssh` 下第三行目录位显示远端 `host:path`，状态行只留 ponytail |
+| `ponytail-status` | 把 ponytail 的 emoji + 大写状态改成 Nerd Font 图标 + 小写 |
 | `footer-tps` | tok/s 接入 footer 事件槽 |
 | `nano-context-footer` | 剥掉 pi-nano-context 自带 footer，避免与 pi-footer 抢占 |
 | `provider-manager-single-entry` | 6 个子模块改由 `providers.ts` 单入口加载 |
-| `tool-backend` | AFT 与 pi-ssh 都注册 read/write/edit/bash，按 `--ssh` 只加载一个 |
+| `tool-backend` | AFT 与 pi-ssh 按 `--ssh` 二选一；SSH 会话禁用本机文件工具，只留远端 bash |
 | `context-backend` | magic-context 与 billion-context 都压缩上下文，按 `--ssh` 只加载一个 |
 | `billion-context-config` | 关闭 bili 自更新、强制公告和内置子代理工具 |
-| `remote-tools` | pi-ssh 只替换四个工具，补齐远端 grep/find/ls |
-| `tool-display-ssh` | `--ssh` 会话让出 grep/find/ls，避免与 remote-tools 重名 |
 | `tool-display-config` | pi-tool-display 显示配置 |
 | `retired-onnx-override` | 清掉旧安装器写下的 onnxruntime 降版覆盖 |
 | `magic-context-setup` | 缺配置时拉起上游 setup 向导，安装器不自己写配置 |

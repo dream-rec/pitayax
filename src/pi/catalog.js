@@ -77,9 +77,9 @@ export const PI_PLUGIN_CATALOG = [
     name: 'pi-ssh',
     spec: 'npm:pi-ssh@0.4.0',
     label: 'pi-ssh (SSH 远程工具)',
-    description: '带 --ssh 启动时 bash 在远端执行；本机文件工具被禁用，所有文件操作统一走 bash。本地会话仍走 AFT。',
+    description: '带 --ssh 启动时 read/write/edit/bash 走远端；ls/find/grep 被禁用，列目录与搜索统一用 bash。本地会话仍走 AFT。',
     default: true,
-    repairs: ['tool-backend']
+    repairs: ['tool-backend', 'pi-ssh-cwd-prompt']
   },
   {
     id: 'plugin-manager',

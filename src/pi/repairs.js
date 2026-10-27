@@ -22,6 +22,29 @@ const RETIRED_OVERRIDE_PIN = '1.21.0';
 const NANO_CONTEXT_FOOTER = /ctx\.ui\.setFooter\(\(_tui,\s*theme,\s*footerData\)\s*=>\s*\(\{[\s\S]*?renderFooter\(pi,\s*ctx,\s*footerData,\s*width,\s*theme\),[\s\S]*?\}\)\);/;
 const NANO_CONTEXT_FOOTER_CLEANUP = /ctx\.ui\.setFooter\(undefined\);/;
 
+const PI_SSH_CWD_MARK = '// pitaya:ssh-cwd-prompt';
+const PI_SSH_CWD_PATTERN = /    const localPrefix = `Current working directory: \$\{localCwd\}`;\n    const remotePrefix = `Current working directory: \$\{conn\.remoteCwd\} \(via SSH \$\{conn\.remote\}\$\{conn\.port !== undefined \? `, port \$\{conn\.port\}` : ""\}\)`;\n\n    if \(!event\.systemPrompt\.includes\(localPrefix\)\) return;\n    let modified = event\.systemPrompt\.replace\(localPrefix, remotePrefix\);\n    if \(remoteContextSection\) \{\n      modified \+= remoteContextSection;\n    \}\n    return \{\n      systemPrompt: modified,\n    \};/;
+
+function piSshCwdPromptBlock(indent = '    ') {
+  return [
+    indent + '// pitaya:ssh-cwd-prompt — pi 用 <cwd> 块描述工作目录，pi-ssh 0.4.0 只匹配旧文案',
+    indent + 'const localPrefix = `Current working directory: ${localCwd}`;',
+    indent + 'const remotePrefix = `Current working directory: ${conn.remoteCwd} (via SSH ${conn.remote}${conn.port !== undefined ? `, port ${conn.port}` : ""})`;',
+    '',
+    indent + 'let modified = event.systemPrompt.includes(localPrefix)',
+    indent + '  ? event.systemPrompt.replace(localPrefix, remotePrefix)',
+    indent + '  : event.systemPrompt;',
+    indent + 'modified = modified.replace(/<cwd>[\\s\\S]*?<\\/cwd>/, `<cwd>${conn.remoteCwd}</cwd>`);',
+    indent + 'if (modified === event.systemPrompt && !remoteContextSection) return;',
+    indent + 'if (remoteContextSection) {',
+    indent + '  modified += remoteContextSection;',
+    indent + '}',
+    indent + 'return {',
+    indent + '  systemPrompt: modified,',
+    indent + '};'
+  ].join('\n');
+}
+
 const TOOL_DISPLAY_SSH_MARK = '// pitaya:ssh-tool-ownership';
 const TOOL_DISPLAY_SSH_BLOCK =
   /[ \t]*\/\/ pitaya:ssh-tool-ownership[^\n]*\r?\n[ \t]*if \(\r?\n[ \t]*\(toolName === "grep" \|\| toolName === "find" \|\| toolName === "ls"\) &&\r?\n[ \t]*process\.argv\.some\(\(arg\) => arg === "--ssh" \|\| arg\.startsWith\("--ssh="\)\)\r?\n[ \t]*\) \{\r?\n[ \t]*return;\r?\n[ \t]*\}\r?\n/;
@@ -373,6 +396,39 @@ export const REPAIRS = {
         hint: ok
           ? '自更新、强制公告与内置子代理均已关闭。'
           : `Expected autoUpdate=false, advisoryCheck=false, pi.subagents=false in ${configPath}. Run pitaya update.`
+      };
+    }
+  },
+
+  // pi-ssh 0.4.0 只把 "Current working directory:" 改写成远端；pi 0.87 的系统提示
+  // 用 <cwd> 块，不改就会让模型以为自己在本机目录。
+  'pi-ssh-cwd-prompt': {
+    label: 'pi-ssh 远端工作目录写入系统提示',
+    phase: 'files',
+    async apply({ agentDir }) {
+      const file = path.join(piPackageDir('pi-ssh', agentDir), 'index.ts');
+      if (!(await pathExists(file))) {
+        return { changed: false, action: 'skipped', path: file, reason: 'pi-ssh 未安装' };
+      }
+      const source = await readFile(file, 'utf8');
+      if (source.includes(PI_SSH_CWD_MARK)) {
+        return { changed: false, action: 'unchanged', path: file };
+      }
+      if (!PI_SSH_CWD_PATTERN.test(source)) {
+        throw new Error(`无法安全改写 pi-ssh 的工作目录提示，上游实现可能已变更: ${file}`);
+      }
+      await writeTextFile(file, source.replace(PI_SSH_CWD_PATTERN, () => piSshCwdPromptBlock()));
+      return { changed: true, action: 'updated', path: file };
+    },
+    async check({ agentDir }) {
+      const file = path.join(piPackageDir('pi-ssh', agentDir), 'index.ts');
+      if (!(await pathExists(file))) {
+        return { name: 'Pi pi-ssh remote cwd prompt', ok: true, hint: 'pi-ssh 未安装。' };
+      }
+      return {
+        name: 'Pi pi-ssh remote cwd prompt',
+        ok: (await readTextIfExists(file))?.includes(PI_SSH_CWD_MARK) ?? false,
+        hint: `pi-ssh does not rewrite the <cwd> system prompt block. Run pitaya update to repair ${file}`
       };
     }
   },

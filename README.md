@@ -57,7 +57,7 @@ npx pitayax init --skip-pi-plugins
 | 启动方式 | 上下文 | 工具 |
 | --- | --- | --- |
 | `pi` | magic-context | AFT |
-| `pi --ssh user@host[:path]` | billion-context | pi-ssh：只有 bash，在远端执行；本机文件工具禁用 |
+| `pi --ssh user@host[:path]` | billion-context | pi-ssh：read/write/edit/bash 在远端；ls/find/grep 禁用，改用 bash |
 
 两套上下文压缩器互斥，由 `extensions/context-backend.ts` 按启动参数单点加载；工具后端同理由 `extensions/tool-backend.ts` 切换。
 
@@ -78,7 +78,7 @@ npx pitayax init --skip-pi-plugins
 | `@cortexkit/pi-magic-context` | 本地会话的语义上下文检索 |
 | `billion-context` | `--ssh` 会话的本地代理上下文压缩（与 magic-context 互斥） |
 | `@cortexkit/aft-pi` | 本地代码工具后端：索引搜索、结构导航、诊断 |
-| `pi-ssh` | `--ssh` 时 bash 在远端执行；本机文件工具禁用，所有文件操作走 bash |
+| `pi-ssh` | `--ssh` 时 read/write/edit/bash 在远端；ls/find/grep 禁用，改用 bash |
 | `pi-plugin-manager` | `/plugins` 插件管理面板 |
 | `pi-web-access` | 联网检索与网页正文提取 |
 | `@juicesharp/rpiv-advisor` | 顾问模型第二意见 |
@@ -115,11 +115,12 @@ npx pitayax init --skip-pi-plugins
 | --- | --- |
 | `footer-gradient` | 给 pi-footer 加 `fg: "gradient"` 支持 |
 | `footer-config` | 三行状态栏，保留用户其它 widget；`--ssh` 下第三行目录位显示远端 `host:path`，状态行只留 ponytail |
+| `pi-ssh-cwd-prompt` | 把 pi-ssh 的远端工作目录写进系统提示的 `<cwd>` 块 |
 | `ponytail-status` | 把 ponytail 的 emoji + 大写状态改成 Nerd Font 图标 + 小写 |
 | `footer-tps` | tok/s 接入 footer 事件槽 |
 | `nano-context-footer` | 剥掉 pi-nano-context 自带 footer，避免与 pi-footer 抢占 |
 | `provider-manager-single-entry` | 6 个子模块改由 `providers.ts` 单入口加载 |
-| `tool-backend` | AFT 与 pi-ssh 按 `--ssh` 二选一；SSH 会话禁用本机文件工具，只留远端 bash |
+| `tool-backend` | AFT 与 pi-ssh 按 `--ssh` 二选一；SSH 会话禁用本机 ls/find/grep，保留远端 read/write/edit/bash |
 | `context-backend` | magic-context 与 billion-context 都压缩上下文，按 `--ssh` 只加载一个 |
 | `billion-context-config` | 关闭 bili 自更新、强制公告和内置子代理工具 |
 | `tool-display-config` | pi-tool-display 显示配置 |

@@ -18,22 +18,13 @@ export const PI_PLUGIN_CATALOG = [
     repairs: ['tool-display-config', 'tool-display-ssh']
   },
   {
-    id: 'nano-context',
-    name: 'pi-nano-context',
-    spec: 'npm:pi-nano-context@0.1.1',
-    label: 'pi-nano-context (上下文用量显示)',
-    description: '显示上下文占用。需剥掉它自带的 footer，否则与 pi-footer 抢占。',
-    default: true,
-    repairs: ['nano-context-footer']
-  },
-  {
     id: 'footer',
     name: 'pi-footer',
     spec: 'npm:pi-footer@0.5.1',
     label: 'pi-footer (状态栏)',
     description: '可配置的底部状态栏：执行模型、顾问模型、目录/git/tok/s 分行显示。',
     default: true,
-    repairs: ['footer-gradient', 'footer-config', 'footer-tps']
+    repairs: ['footer-gradient', 'footer-config', 'footer-tps', 'footer-ctx-line']
   },
   {
     id: 'provider-manager',
@@ -57,7 +48,7 @@ export const PI_PLUGIN_CATALOG = [
   {
     id: 'billion-context',
     name: 'billion-context',
-    spec: 'npm:billion-context@0.1.208',
+    spec: 'npm:billion-context@0.1.212',
     label: 'billion-context (SSH 会话上下文压缩)',
     description: '只给 --ssh 会话用：本地代理压缩上下文。与 magic-context 互斥，由 context-backend 单点加载。',
     default: true,
@@ -125,7 +116,7 @@ export const PI_PLUGIN_CATALOG = [
 ];
 
 // 已退役扩展在 init/update 时卸载，doctor 会报告残留。
-export const PI_RETIRED_PACKAGES = ['pi-cometix-footer', 'pi-btw', 'pi-advisor-flow', 'pi-mcp-adapter'];
+export const PI_RETIRED_PACKAGES = ['pi-cometix-footer', 'pi-btw', 'pi-advisor-flow', 'pi-mcp-adapter', 'pi-nano-context'];
 
 // 旧安装器直接写在 extensions/ 下的 shim。pi 会加载该目录里的每个文件，
 // ssh-aft-compat.ts 与 tool-backend.ts 注册同一批工具，必须删掉。

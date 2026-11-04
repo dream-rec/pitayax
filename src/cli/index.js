@@ -162,7 +162,7 @@ function helpText() {
     "Examples:",
     "  npx pitayax",
     "  npx pitayax init",
-    "  npx pitayax init --pi-plugins nano-context,footer",
+    "  npx pitayax init --pi-plugins footer,web-access",
     "  npx pitayax update --clean",
     "  npx pitayax doctor",
   ].join("\n");

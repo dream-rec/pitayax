@@ -19,9 +19,6 @@ const RETIRED_OVERRIDE_PARENT = '@huggingface/transformers';
 const RETIRED_OVERRIDE_KEY = 'onnxruntime-node';
 const RETIRED_OVERRIDE_PIN = '1.21.0';
 
-const NANO_CONTEXT_FOOTER = /ctx\.ui\.setFooter\(\(_tui,\s*theme,\s*footerData\)\s*=>\s*\(\{[\s\S]*?renderFooter\(pi,\s*ctx,\s*footerData,\s*width,\s*theme\),[\s\S]*?\}\)\);/;
-const NANO_CONTEXT_FOOTER_CLEANUP = /ctx\.ui\.setFooter\(undefined\);/;
-
 const PI_SSH_CWD_MARK = '// pitaya:ssh-cwd-prompt';
 const PI_SSH_CWD_PATTERN = /    const localPrefix = `Current working directory: \$\{localCwd\}`;\n    const remotePrefix = `Current working directory: \$\{conn\.remoteCwd\} \(via SSH \$\{conn\.remote\}\$\{conn\.port !== undefined \? `, port \$\{conn\.port\}` : ""\}\)`;\n\n    if \(!event\.systemPrompt\.includes\(localPrefix\)\) return;\n    let modified = event\.systemPrompt\.replace\(localPrefix, remotePrefix\);\n    if \(remoteContextSection\) \{\n      modified \+= remoteContextSection;\n    \}\n    return \{\n      systemPrompt: modified,\n    \};/;
 
@@ -98,6 +95,16 @@ function billionContextConfigPath(env = process.env) {
   const base = env.XDG_CONFIG_HOME || path.join(homedir(), '.config');
   return path.join(base, 'billion-context', 'billion-context.json');
 }
+
+// 500K 窗口的少压缩档位：首次折叠约在 340K，之后只在压力线附近触发。
+// 缺失时补默认值，用户手调的值保留。
+const BILLION_COMPRESS_DEFAULTS = {
+  maxContextLimit: '85%',
+  emergencyThresholdPercent: '95%',
+  nudgeGrowthTokens: 300000,
+  minPressureBenefitTokens: 50000,
+  messageTimestamps: true
+};
 
 // 用户自己在 /footer、tool-display 里调过的配置文件不覆盖；--clean 视为重置，
 // 先备份再写回模板。
@@ -184,38 +191,6 @@ async function checkOverlay(packageRoot, packageName, agentDir) {
 // 每个条目把「怎么修」和「怎么验」放在一起，安装与 doctor 共用同一份事实。
 // phase 'tree' 会改动 npm 依赖树，必须排在会改 node_modules 内文件的 'files' 之前。
 export const REPAIRS = {
-  'nano-context-footer': {
-    label: 'pi-nano-context footer 冲突',
-    phase: 'files',
-    async apply({ agentDir }) {
-      const nanoPath = path.join(piPackageDir('pi-nano-context', agentDir), 'index.ts');
-      if (!(await pathExists(nanoPath))) {
-        return { changed: false, action: 'skipped', path: nanoPath, reason: 'pi-nano-context 未安装' };
-      }
-
-      const source = await readFile(nanoPath, 'utf8');
-      const next = source.replace(NANO_CONTEXT_FOOTER, '').replace(NANO_CONTEXT_FOOTER_CLEANUP, '');
-
-      if (next !== source) {
-        await writeTextFile(nanoPath, next);
-        return { changed: true, action: 'updated', path: nanoPath };
-      }
-      if (!source.includes('ctx.ui.setFooter(')) {
-        return { changed: false, action: 'unchanged', path: nanoPath };
-      }
-      throw new Error(`无法安全剥离 pi-nano-context 的 footer，上游实现可能已变更: ${nanoPath}`);
-    },
-    async check({ agentDir }) {
-      const nanoPath = path.join(piPackageDir('pi-nano-context', agentDir), 'index.ts');
-      const source = await readTextIfExists(nanoPath);
-      return {
-        name: 'Pi footer conflict repair',
-        ok: Boolean(source) && !source.includes('ctx.ui.setFooter('),
-        hint: `pi-nano-context still registers a competing footer. Run pitaya update to repair ${nanoPath}`
-      };
-    }
-  },
-
   'provider-manager-single-entry': {
     label: 'pi-provider-manager 单入口加载',
     phase: 'files',
@@ -355,14 +330,23 @@ export const REPAIRS = {
 
   // bili 默认每 3 分钟查 npm 自动升级，critical 公告即使关掉 autoUpdate 也会强制
   // 换版，并且会通过 pi update --extension 改写 pi 的 npm 副本。要钉死版本，
-  // 这三个开关必须落盘；同时关掉内置的 3 个 delegate 子代理工具。
+  // 这三个开关必须落盘；同时关掉内置的 3 个 delegate 子代理工具，并补上少压缩
+  // 档位（默认 50K 增长就提醒一次，500K 窗口下压得太勤）。
   'billion-context-config': {
     label: 'billion-context 钉版运行配置',
     phase: 'files',
     async apply() {
       const configPath = billionContextConfigPath();
       const existing = await readJsonObject(configPath, {});
-      const next = { ...existing, autoUpdate: false, advisoryCheck: false };
+      const compressSection = existing.compress && typeof existing.compress === 'object' && !Array.isArray(existing.compress)
+        ? existing.compress
+        : {};
+      const next = {
+        ...existing,
+        autoUpdate: false,
+        advisoryCheck: false,
+        compress: { ...BILLION_COMPRESS_DEFAULTS, ...compressSection }
+      };
       if (existing.pi !== false) {
         const piSection = existing.pi && typeof existing.pi === 'object' && !Array.isArray(existing.pi)
           ? existing.pi
@@ -378,7 +362,7 @@ export const REPAIRS = {
         changed: true,
         action: 'updated',
         path: configPath,
-        reason: '关闭自更新与强制公告，关闭内置子代理工具'
+        reason: '关闭自更新与强制公告，关闭内置子代理工具，补上少压缩档位'
       };
     },
     async check() {
@@ -389,13 +373,19 @@ export const REPAIRS = {
         piSection === false ||
         piSection?.subagents === false ||
         piSection?.subagents?.enabled === false;
-      const ok = config.autoUpdate === false && config.advisoryCheck === false && subagentsOff;
+      const compress = config.compress;
+      const compressOk =
+        compress &&
+        typeof compress === 'object' &&
+        !Array.isArray(compress) &&
+        Object.keys(BILLION_COMPRESS_DEFAULTS).every((key) => key in compress);
+      const ok = config.autoUpdate === false && config.advisoryCheck === false && subagentsOff && compressOk;
       return {
         name: 'Pi billion-context pinned config',
         ok,
         hint: ok
-          ? '自更新、强制公告与内置子代理均已关闭。'
-          : `Expected autoUpdate=false, advisoryCheck=false, pi.subagents=false in ${configPath}. Run pitaya update.`
+          ? '自更新、强制公告、内置子代理与压缩档位均已就位。'
+          : `Expected autoUpdate=false, advisoryCheck=false, pi.subagents=false and the compression tuning keys in ${configPath}. Run pitaya update.`
       };
     }
   },
@@ -562,7 +552,7 @@ export const REPAIRS = {
         changed: true,
         action: 'updated',
         path: configPath,
-        reason: `补齐执行模型图标、顾问行与 tok/s；原配置已备份到 ${path.basename(backup)}`
+        reason: `补齐执行模型图标、顾问行、上下文行与 tok/s；原配置已备份到 ${path.basename(backup)}`
       };
     },
     async check({ agentDir, packageRoot }) {
@@ -575,7 +565,25 @@ export const REPAIRS = {
       return {
         name: 'Pi footer config',
         ok: issues.length === 0,
-        hint: issues.length ? `${issues.join('、')}。Run pitaya update.` : '执行模型、顾问行与 tok/s 已对齐模板。'
+        hint: issues.length ? `${issues.join('、')}。Run pitaya update.` : '执行模型、顾问行、上下文行与 tok/s 已对齐模板。'
+      };
+    }
+  },
+
+  // footer 第 3 行的上下文进度条：后端名、热力条、当前/窗口与实际触发 token。
+  'footer-ctx-line': {
+    label: 'pi-footer 上下文行扩展',
+    phase: 'files',
+    async apply({ agentDir, packageRoot }) {
+      const target = path.join(piExtensionsDir(agentDir), 'context-line.ts');
+      return writeIfChanged(target, await readTemplate(packageRoot, 'context-line.ts'));
+    },
+    async check({ agentDir, packageRoot }) {
+      const target = path.join(piExtensionsDir(agentDir), 'context-line.ts');
+      return {
+        name: 'Pi footer context line extension',
+        ok: (await readTextIfExists(target))?.trimEnd() === (await readTemplate(packageRoot, 'context-line.ts')).trimEnd(),
+        hint: `Missing or modified ${target}. Run pitaya update.`
       };
     }
   },

@@ -25,5 +25,9 @@ export default async function contextBackend(pi: ExtensionAPI): Promise<void> {
     return;
   }
   const { default: backend } = await import(entry);
+  // 给 footer 的上下文行（context-line.ts）标记当前后端。
+  (globalThis as { __piContextBackend?: "magic" | "billion" }).__piContextBackend = SSH_MODE
+    ? "billion"
+    : "magic";
   await backend(pi);
 }

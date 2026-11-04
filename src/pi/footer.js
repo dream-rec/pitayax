@@ -1,5 +1,5 @@
-// pi-footer 状态栏布局由 pitayax 托管：模板的三行结构（执行模型 / 顾问模型 / 目录与 tok/s）
-// 必须落到用户已有配置上，否则升级只会保留旧的两行布局。这里只接管这 5 个 widget 及其
+// pi-footer 状态栏布局由 pitayax 托管：模板的四行结构（执行模型 / 顾问模型 / 上下文 / 目录与 tok/s）
+// 必须落到用户已有配置上，否则升级只会保留旧布局。这里只接管这 6 个 widget 及其
 // 图标/颜色选项，其余 widget、行和配置项一律保留用户原样。
 
 const OWNED_WIDGETS = [
@@ -7,16 +7,25 @@ const OWNED_WIDGETS = [
   { row: 0, type: 'thinking-level' },
   { row: 1, type: 'event', widgetId: 'advisor-model' },
   { row: 1, type: 'event', widgetId: 'advisor-effort' },
-  { row: 2, type: 'event', widgetId: 'tps' }
+  { row: 3, type: 'event', widgetId: 'tps', rowAtLeast: true },
+  { row: 2, type: 'external-status', statusKey: 'ctx-line' }
 ];
 
 const OWNED_OPTIONS = ['icon', 'fg', 'raw', 'hideWhenEmpty'];
 
-const HIDDEN_STATUS_KEYS = ['pi-ssh'];
+const HIDDEN_STATUS_KEYS = ['pi-ssh', 'ctx-line'];
 const RETIRED_STATUS_KEYS = ['mcp', 'pitaya-remote'];
 
 function matches(entry, spec) {
-  return entry?.type === spec.type && (spec.widgetId === undefined || entry.options?.widgetId === spec.widgetId);
+  return (
+    entry?.type === spec.type &&
+    (spec.widgetId === undefined || entry.options?.widgetId === spec.widgetId) &&
+    (spec.statusKey === undefined || entry.options?.externalStatusKey === spec.statusKey)
+  );
+}
+
+function labelOf(spec) {
+  return spec.widgetId ?? spec.statusKey ?? spec.type;
 }
 
 function linesOf(config) {
@@ -47,7 +56,7 @@ function findWidget(lines, spec) {
 
 function templateWidget(template, spec) {
   const entry = template.lines?.[spec.row]?.find((candidate) => matches(candidate, spec));
-  if (!entry) throw new Error(`pi-footer 模板缺少 ${spec.widgetId ?? spec.type}`);
+  if (!entry) throw new Error(`pi-footer 模板缺少 ${labelOf(spec)}`);
   return structuredClone(entry);
 }
 
@@ -70,14 +79,21 @@ export function footerIssues(config, template) {
   if (!lines) return ['lines 结构无效'];
   const issues = [];
   for (const spec of OWNED_WIDGETS) {
-    const label = spec.widgetId ?? spec.type;
+    const label = labelOf(spec);
     const found = findWidget(lines, spec);
     if (!found) {
       issues.push(`缺少 ${label}`);
       continue;
     }
     if (found.entry.enabled === false) issues.push(`${label} 未启用`);
-    if (found.row !== spec.row) issues.push(`${label} 不在第 ${spec.row + 1} 行`);
+    const rowMismatch = spec.rowAtLeast ? found.row < spec.row : found.row !== spec.row;
+    if (rowMismatch) {
+      issues.push(
+        spec.rowAtLeast
+          ? `${label} 不在第 ${spec.row + 1} 行或之后`
+          : `${label} 不在第 ${spec.row + 1} 行`
+      );
+    }
     if (optionMismatch(found.entry, templateWidget(template, spec))) {
       issues.push(`${label} 的图标或配色与模板不一致`);
     }
@@ -101,6 +117,9 @@ export function mergeFooterConfig(config, template) {
 
   const next = structuredClone(config);
   const widgets = OWNED_WIDGETS.map((spec) => takeWidget(next.lines, spec) ?? templateWidget(template, spec));
+  // 上下文行独占一行；取走后留下的空行（即它原来的那行）先删掉，最后再插回第 3 行。
+  // 模型行、顾问行只含托管 widget 时也会空，只删第 3 行及之后的空行。
+  next.lines = next.lines.filter((line, index) => index < 2 || line.length > 0);
   const expected = OWNED_WIDGETS.map((spec) => templateWidget(template, spec));
 
   // 旧版是两行；新版在中间插入顾问行。已经迁移过的配置保持行序不变。
@@ -113,6 +132,7 @@ export function mergeFooterConfig(config, template) {
   const host = next.lines.slice(2).find((line) => line.some((entry) => entry.type === 'git-diff')) ?? next.lines.at(-1);
   const gitIndex = host.findIndex((entry) => entry.type === 'git-diff');
   host.splice(gitIndex === -1 ? host.length : gitIndex + 1, 0, widgets[4]);
+  next.lines.splice(2, 0, [widgets[5]]);
 
   for (let index = 0; index < OWNED_WIDGETS.length; index += 1) {
     applyOwnedOptions(widgets[index], expected[index]);

@@ -65,6 +65,23 @@
     ],
     [
       {
+        "id": "ctx-line",
+        "type": "external-status",
+        "enabled": true,
+        "options": {
+          "raw": true,
+          "hideWhenEmpty": true,
+          "icon": "",
+          "text": "",
+          "fg": "default",
+          "bg": "default",
+          "bold": false,
+          "externalStatusKey": "ctx-line"
+        }
+      }
+    ],
+    [
+      {
         "id": "cwd-basename-mu553nex-63i8na",
         "type": "cwd-basename",
         "enabled": true,
@@ -181,11 +198,13 @@
   "extensionStatusRow": {
     "hiddenKeys": [
       "magic-context",
-      "pi-ssh"
+      "pi-ssh",
+      "ctx-line"
     ],
     "knownKeys": [
       "magic-context",
-      "pi-ssh"
+      "pi-ssh",
+      "ctx-line"
     ]
   }
 }

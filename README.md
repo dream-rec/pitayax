@@ -61,7 +61,7 @@ npx pitayax init --skip-pi-plugins
 
 两套上下文压缩器互斥，由 `extensions/context-backend.ts` 按启动参数单点加载；工具后端同理由 `extensions/tool-backend.ts` 切换。
 
-`billion-context` 钉在 `0.1.208`，安装时在 `~/.config/billion-context/billion-context.json` 写入 `autoUpdate=false`、`advisoryCheck=false`、`pi.subagents=false`：它的自更新和 critical 公告会绕过版本钉死，内置子代理工具也不在本工作流范围内。
+`billion-context` 钉在 `0.1.212`，安装时在 `~/.config/billion-context/billion-context.json` 写入 `autoUpdate=false`、`advisoryCheck=false`、`pi.subagents=false`：它的自更新和 critical 公告会绕过版本钉死，内置子代理工具也不在本工作流范围内。压缩间隔按 500K 窗口调大：补成 `maxContextLimit=85%`、`emergencyThresholdPercent=95%`、`nudgeGrowthTokens=300000`、`minPressureBenefitTokens=50000`、`messageTimestamps=true`，首次折叠约 340K；只在缺失时写入，手调值保留，换小窗口模型要按 provider 覆盖。
 
 ---
 
@@ -72,8 +72,7 @@ npx pitayax init --skip-pi-plugins
 | 插件 | 作用 |
 | --- | --- |
 | `pi-tool-display` | 渲染 find/ls、用户消息框和 thinking 标签 |
-| `pi-nano-context` | 上下文占用显示 |
-| `pi-footer` | 三行状态栏：执行模型 / 顾问模型 / 目录与 tok/s |
+| `pi-footer` | 四行状态栏：执行模型 / 顾问模型 / 上下文进度条 / 目录与 tok/s |
 | `@arcaneorion/pi-provider-manager` | `/providers` 面板、健康统计与轮询 |
 | `@cortexkit/pi-magic-context` | 本地会话的语义上下文检索 |
 | `billion-context` | `--ssh` 会话的本地代理上下文压缩（与 magic-context 互斥） |
@@ -98,8 +97,9 @@ npx pitayax init --skip-pi-plugins
 | `extensions/providers.ts` | provider-manager 单入口 |
 | `extensions/tool-backend.ts` | AFT / pi-ssh 按启动参数二选一 |
 | `extensions/context-backend.ts` | magic-context / billion-context 按启动参数二选一 |
+| `extensions/context-line.ts` | footer 上下文行：后端、热力进度条、当前/窗口与实际压缩触发 token |
 | `extensions/tps.ts` | 把 tok/s 送进 footer 事件槽 |
-| `extensions/pi-footer.json` | 状态栏三行布局 |
+| `extensions/pi-footer.json` | 状态栏四行布局 |
 | `extensions/pi-tool-display/config.json` | 工具显示配置 |
 | `npm/` | 插件按精确版本安装 |
 
@@ -114,15 +114,15 @@ npx pitayax init --skip-pi-plugins
 | 补丁 | 作用 |
 | --- | --- |
 | `footer-gradient` | 给 pi-footer 加 `fg: "gradient"` 支持 |
-| `footer-config` | 三行状态栏，保留用户其它 widget；`--ssh` 下第三行目录位显示远端 `host:path`，状态行只留 ponytail |
+| `footer-config` | 四行状态栏，保留用户其它 widget；上下文行独占第三行；`--ssh` 下目录位显示远端 `host:path`，状态行只留 ponytail |
 | `pi-ssh-cwd-prompt` | 把 pi-ssh 的远端工作目录写进系统提示的 `<cwd>` 块 |
 | `ponytail-status` | 把 ponytail 的 emoji + 大写状态改成 Nerd Font 图标 + 小写 |
 | `footer-tps` | tok/s 接入 footer 事件槽 |
-| `nano-context-footer` | 剥掉 pi-nano-context 自带 footer，避免与 pi-footer 抢占 |
+| `footer-ctx-line` | 安装上下文行扩展：magic 读 `execute_threshold_percentage`，billion 读 `compress.maxContextLimit`，按有效窗口换算成触发 token |
 | `provider-manager-single-entry` | 6 个子模块改由 `providers.ts` 单入口加载 |
 | `tool-backend` | AFT 与 pi-ssh 按 `--ssh` 二选一；SSH 会话禁用本机 ls/find/grep，保留远端 read/write/edit/bash |
 | `context-backend` | magic-context 与 billion-context 都压缩上下文，按 `--ssh` 只加载一个 |
-| `billion-context-config` | 关闭 bili 自更新、强制公告和内置子代理工具 |
+| `billion-context-config` | 关闭 bili 自更新、强制公告和内置子代理工具；缺失时补上少压缩档位 |
 | `tool-display-config` | pi-tool-display 显示配置 |
 | `retired-onnx-override` | 清掉旧安装器写下的 onnxruntime 降版覆盖 |
 | `magic-context-setup` | 缺配置时拉起上游 setup 向导，安装器不自己写配置 |
@@ -135,8 +135,8 @@ npx pitayax init --skip-pi-plugins
 
 - **版本冲突**：与钉死版本不一致时自动对齐。装完复核包内 `package.json`，仍不一致就先 `pi remove` 再装，报告记为 `aligned` 并写出 `旧版本 → 新版本`；`settings.json` 的 source 也会收紧成精确版本。
 - **清单外扩展**：已登记但不在 `src/pi/catalog.js` 里的包。交互式终端会列出名称和版本，让你选「卸载 / 保留」；非交互终端一律保留并在报告里注明。
-- **已退役扩展**：`pi-cometix-footer`、`pi-btw`、`pi-advisor-flow`、`pi-mcp-adapter` 直接卸载；`extensions/ssh-aft-compat.ts` 一并删除，它和 `tool-backend.ts` 会注册同一批工具；`.mcp.json` / `mcp-adapter.json` 里对应的退役 server 一并清掉，其它 MCP 条目不动。
-- **billion-context 钉版**：doctor 校验 `autoUpdate=false`、`advisoryCheck=false`、`pi.subagents=false`，任一被改回去都会报出来。
+- **已退役扩展**：`pi-cometix-footer`、`pi-btw`、`pi-advisor-flow`、`pi-mcp-adapter`、`pi-nano-context` 直接卸载；`extensions/ssh-aft-compat.ts` 一并删除，它和 `tool-backend.ts` 会注册同一批工具；`.mcp.json` / `mcp-adapter.json` 里对应的退役 server 一并清掉，其它 MCP 条目不动。
+- **billion-context 钉版**：doctor 校验 `autoUpdate=false`、`advisoryCheck=false`、`pi.subagents=false` 以及压缩档位的五个键是否齐全，任一被改回去都会报出来。
 
 ---
 

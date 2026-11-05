@@ -60,7 +60,7 @@ function ponytailStatusBlock(eol, indent) {
     `${indent}const icon = levelIcons[currentMode] || "";`,
     `${indent}const color = levelColors[currentMode] || "text";`,
     `${indent}const indicator = isActive ? theme.fg("accent", "●") : theme.fg("dim", "○");`,
-    `${indent}c.ui.setStatus("ponytail", theme.fg("thinkingXhigh", "") + " " + theme.fg("muted", "ponytail: ") + theme.fg(color, icon + " " + currentMode) + " " + indicator);`
+    `${indent}c.ui.setStatus("ponytail", theme.fg("thinkingXhigh", "") + " " + theme.fg("muted", "ponytail: ") + theme.fg(color, icon + " " + currentMode) + " " + indicator);`
   ].join(eol);
 }
 
@@ -511,7 +511,7 @@ export const REPAIRS = {
         ok:
           source.includes(PONYTAIL_STATUS_MARK) &&
           source.includes('full: "󰖌"') &&
-          source.includes('theme.fg("thinkingXhigh", "")'),
+          source.includes('theme.fg("thinkingXhigh", "")'),
         hint: `ponytail still renders outdated status icon or upstream style. Run pitaya update to repair ${file}`
       };
     }

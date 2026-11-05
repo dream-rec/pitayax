@@ -49,16 +49,18 @@ const TOOL_DISPLAY_SSH_BLOCK =
 const PONYTAIL_STATUS_MARK = '// ponytail: nerd font icons';
 const PONYTAIL_STATUS_PATTERN =
   /([ \t]*)const levelIcons = \{ lite: "🌿", full: "⚡", ultra: "🔥" \};\r?\n\s*const icon = levelIcons\[currentMode\] \|\| "";\r?\n\s*const label = currentMode\.toUpperCase\(\);\r?\n\s*const indicator = isActive \? theme\.fg\("accent", "●"\) : theme\.fg\("dim", "○"\);\r?\n\s*c\.ui\.setStatus\("ponytail", indicator \+ " 🐴 " \+ theme\.fg\("muted", "ponytail: "\) \+ theme\.fg\("text", icon \+ " " \+ label\)\);/;
+const PONYTAIL_PATCHED_PATTERN =
+  /[ \t]*\/\/[ \t]*ponytail:[ \t]*nerd font icons[^\n]*\r?\n[\s\S]*?c\.ui\.setStatus\("ponytail", [^\n]+\);/;
 
 function ponytailStatusBlock(eol, indent) {
   return [
     `${indent}// ponytail: nerd font icons, lowercase label, and the active indicator moved to the right`,
-    `${indent}const levelIcons = { lite: "󰛓", full: "󰶳", ultra: "󰈸" };`,
+    `${indent}const levelIcons = { lite: "󰛓", full: "󰖌", ultra: "󰈸" };`,
     `${indent}const levelColors = { lite: "success", full: "warning", ultra: "error" };`,
     `${indent}const icon = levelIcons[currentMode] || "";`,
     `${indent}const color = levelColors[currentMode] || "text";`,
     `${indent}const indicator = isActive ? theme.fg("accent", "●") : theme.fg("dim", "○");`,
-    `${indent}c.ui.setStatus("ponytail", theme.fg("thinkingXhigh", "󱖿") + " " + theme.fg("muted", "ponytail: ") + theme.fg(color, icon + " " + currentMode) + " " + indicator);`
+    `${indent}c.ui.setStatus("ponytail", theme.fg("thinkingXhigh", "") + " " + theme.fg("muted", "ponytail: ") + theme.fg(color, icon + " " + currentMode) + " " + indicator);`
   ].join(eol);
 }
 
@@ -471,15 +473,27 @@ export const REPAIRS = {
         return { changed: false, action: 'skipped', path: file, reason: 'ponytail 未安装' };
       }
       const source = await readFile(file, 'utf8');
-      if (source.includes(PONYTAIL_STATUS_MARK)) {
+      const eol = source.includes('\r\n') ? '\r\n' : '\n';
+      const expectedBlock = ponytailStatusBlock(eol, '    ');
+      if (source.includes(expectedBlock)) {
         return { changed: false, action: 'unchanged', path: file };
+      }
+      if (source.includes(PONYTAIL_STATUS_MARK)) {
+        if (PONYTAIL_PATCHED_PATTERN.test(source)) {
+          const updated = source.replace(PONYTAIL_PATCHED_PATTERN, (match) => {
+            const indent = match.match(/^[ \t]*/)?.[0] ?? '    ';
+            return ponytailStatusBlock(eol, indent);
+          });
+          await writeTextFile(file, updated);
+          return { changed: true, action: 'updated', path: file };
+        }
       }
       const match = PONYTAIL_STATUS_PATTERN.exec(source);
       if (!match) {
         throw new Error(`无法安全接管 ponytail 状态栏，上游实现可能已变更: ${file}`);
       }
-      const eol = match[0].includes('\r\n') ? '\r\n' : '\n';
-      await writeTextFile(file, source.replace(PONYTAIL_STATUS_PATTERN, (_match, indent) => ponytailStatusBlock(eol, indent)));
+      const indent = match[1] ?? '    ';
+      await writeTextFile(file, source.replace(PONYTAIL_STATUS_PATTERN, () => ponytailStatusBlock(eol, indent)));
       return { changed: true, action: 'updated', path: file };
     },
     async check({ agentDir }) {
@@ -491,10 +505,14 @@ export const REPAIRS = {
       if (!(await pathExists(file))) {
         return { name: 'Pi ponytail status style', ok: true, hint: 'ponytail 未安装。' };
       }
+      const source = (await readTextIfExists(file)) ?? '';
       return {
         name: 'Pi ponytail status style',
-        ok: (await readTextIfExists(file))?.includes(PONYTAIL_STATUS_MARK) ?? false,
-        hint: `ponytail still renders the upstream emoji/uppercase status. Run pitaya update to repair ${file}`
+        ok:
+          source.includes(PONYTAIL_STATUS_MARK) &&
+          source.includes('full: "󰖌"') &&
+          source.includes('theme.fg("thinkingXhigh", "")'),
+        hint: `ponytail still renders outdated status icon or upstream style. Run pitaya update to repair ${file}`
       };
     }
   },
